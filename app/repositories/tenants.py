@@ -5,7 +5,7 @@ import psycopg
 
 from app.core.models import Tenant
 
-_COLUMNS = "id, name, plan_code, billing_status, stripe_customer_id"
+_COLUMNS = "id, name, plan_code, billing_status"
 
 
 def _tenant(row: dict) -> Tenant:
@@ -14,7 +14,6 @@ def _tenant(row: dict) -> Tenant:
         name=row["name"],
         plan_code=row["plan_code"],
         billing_status=row["billing_status"],
-        stripe_customer_id=row["stripe_customer_id"],
     )
 
 
@@ -33,7 +32,7 @@ def get_by_id(conn: psycopg.Connection, tenant_id: UUID) -> Tenant | None:
 
 
 def lock_for_update(conn: psycopg.Connection, tenant_id: UUID) -> Tenant | None:
-    """Serialises all metering for one tenant until the transaction ends."""
+    """Serialises all metering and plan changes for one tenant until the transaction ends."""
     row = conn.execute(
         f"SELECT {_COLUMNS} FROM tenants WHERE id = %s FOR UPDATE", (tenant_id,)
     ).fetchone()
@@ -64,4 +63,20 @@ def rotate_key(conn: psycopg.Connection, tenant_id: UUID, api_key_hash: str) -> 
     conn.execute(
         "UPDATE tenants SET api_key_hash = %s, updated_at = now() WHERE id = %s",
         (api_key_hash, tenant_id),
+    )
+
+
+def set_plan(
+    conn: psycopg.Connection, tenant_id: UUID, plan_code: str, billing_status: str | None = None
+) -> None:
+    """Change a tenant's plan. billing_status is left alone unless given."""
+    conn.execute(
+        """
+        UPDATE tenants
+        SET plan_code = %s,
+            billing_status = coalesce(%s, billing_status),
+            updated_at = now()
+        WHERE id = %s
+        """,
+        (plan_code, billing_status, tenant_id),
     )
