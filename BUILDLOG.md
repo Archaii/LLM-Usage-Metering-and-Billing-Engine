@@ -112,3 +112,11 @@ Honest record of where AI helped, where it was wrong, and what I changed.
   check which container is actually running which code.
 - **Open items:** mentor confirmation of PayMongo and the prepaid-30-day model; Probe 4 against a *real*
   replayed delivery (the forged-signature and duplicate probes so far used simulated, self-signed events).
+
+## 2026-10-04 — mentor answers on the PayMongo switch
+
+- Webhook path `POST /webhooks/paymongo` instead of `/webhooks/stripe`: **approved** (Stripe is unavailable).
+- Fixed PHP 1,650.00 per 30-day Pro period (not a live exchange rate): **approved**.
+- Prepaid 30-day Pro vs an auto-renewing subscription: the mentor gave no ruling. Decision: keep prepaid,
+  because PayMongo's Subscriptions API needs a customer-facing step to capture a card and this project has
+  no frontend. The README Limitations section will say so. The Subscriptions API stays a stretch goal.
