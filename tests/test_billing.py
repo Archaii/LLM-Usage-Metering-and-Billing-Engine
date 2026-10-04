@@ -44,15 +44,16 @@ def test_checkout_returns_url_and_stores_the_session(client, make_tenant, provid
     assert call["cancel_url"].endswith("/billing/cancel")
 
 
-def test_checkout_for_a_pro_tenant_is_409_and_never_calls_the_provider(client, make_tenant, provider):
-    _, key = make_tenant(plan="pro")
+def test_a_pro_tenant_can_start_a_renewal_checkout(client, make_tenant, provider):
+    tenant, key = make_tenant(plan="pro")
 
     r = client.post("/billing/checkout", headers={"X-API-Key": key})
 
-    assert r.status_code == 409
-    assert r.json()["error"] == "already_pro"
-    assert provider.calls == []
-    assert _sessions() == []
+    assert r.status_code == 200
+    assert r.json()["session_id"] == "cs_fake_1"
+    [row] = _sessions()
+    assert (row["tenant_id"], row["status"]) == (tenant.id, "pending")
+    assert len(provider.calls) == 1
 
 
 def test_provider_failure_is_502_with_no_stored_session_and_no_secret(client, make_tenant, provider):

@@ -108,11 +108,43 @@ def test_tenant_with_a_second_active_period_stays_pro(client, make_tenant):
     deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_2", session_id="cs_two"))
     process_pending(WebhookService(fake))
 
-    # Day 31: the first period lapsed, the second (paid day 20, ends day 50) is still active.
-    assert expire_periods(now=PAID + timedelta(days=31)) == 0
+    # The second payment (day 20) renews early: its period starts when the first ends (day 30).
     with transaction() as conn:
-        plan = conn.execute("SELECT plan_code FROM tenants WHERE id = %s", (tenant.id,)).fetchone()["plan_code"]
-    assert plan == "pro"
+        rows = conn.execute(
+            "SELECT current_period_start AS s, current_period_end AS e FROM subscriptions ORDER BY s"
+        ).fetchall()
+    first, second = rows
+    assert second["s"] == first["e"] == PAID + timedelta(days=30)
+    assert second["e"] == PAID + timedelta(days=60)
+
+    def plan():
+        with transaction() as conn:
+            return conn.execute("SELECT plan_code FROM tenants WHERE id = %s", (tenant.id,)).fetchone()["plan_code"]
+
+    # Day 31: the first period lapsed, the second (day 30 to 60) carries on: no gap on Free.
+    assert expire_periods(now=PAID + timedelta(days=31)) == 0
+    assert plan() == "pro"
+    # Day 61: everything paid has run out.
+    assert expire_periods(now=PAID + timedelta(days=61)) == 1
+    assert plan() == "free"
+
+
+def test_renewal_after_the_period_lapsed_starts_at_the_payment_time(client, make_tenant):
+    tenant, _ = make_tenant(plan="free")
+    fake = FakePayMongoClient()
+    fake.paid_at["cs_late"] = PAID_AT + 45 * 86_400  # bought 15 days after the first period ended
+    deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_1", session_id="cs_one"))
+    deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_2", session_id="cs_late"))
+    process_pending(WebhookService(fake))
+
+    with transaction() as conn:
+        rows = conn.execute(
+            "SELECT current_period_start AS s, current_period_end AS e FROM subscriptions ORDER BY s"
+        ).fetchall()
+    first, late = rows
+    assert late["s"] == PAID + timedelta(days=45)  # not stacked: nothing was running at that moment
+    assert late["e"] == late["s"] + timedelta(days=30)
+    assert first["e"] < late["s"]
 
 
 def test_seeded_pro_tenant_without_a_subscription_is_never_downgraded(client, make_tenant):
