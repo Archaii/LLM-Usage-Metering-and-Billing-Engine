@@ -32,13 +32,26 @@ Free: `402 upgrade_required` with `upgrade_url`. Pro: `429 quota_exceeded` with 
 ## Cost calculation
 
 ### Monthly usage rolls up into a cost figure per tenant
-_TODO_
+`GET /usage` sums the month's token counts per category, prices each category once, then adds the API-call cost and the plan base fee (`MeterService.usage_summary`). Live output after one worked-example `POST /generate` on a fresh Free tenant (Gate 4):
+
+```text
+GET /usage
+{"plan":"free","api_calls":{"used":1,"limit":1000,"remaining":999,"cost_micros":2000},
+ "tokens":{"used":13500,"limit":100000,"remaining":86500,"cost_micros":10850,
+           "breakdown":{"input":10000,"cached_input":4000,"fresh_input":6000,"output":2000,"reasoning":1500}},
+ "base_fee_micros":0,"total_micros":12850,"total_usd":"0.012850"}
+```
+
+Hand calculation: 6,000 x 300,000 + 4,000 x 75,000 + 3,500 x 2,500,000 = 10,850,000,000 raw; / 1,000,000 = 10,850 micros. Plus 1 call x 2,000 = **12,850 micros = $0.012850**. Tests: `tests/test_pricing.py::test_usage_rollup_prices_the_worked_example`, `test_usage_rollup_adds_the_pro_base_fee` (Pro: 29,012,850 micros), `test_rollup_prices_summed_counts_not_per_event_rounding` (100 small events price to 340 token micros, not 100 x 3 = 300).
+
 
 ### Cached input, reasoning, and output token pricing
-_TODO_
+`PricingService.token_micros` (`app/services/pricing.py`) prices fresh input at the input rate, cached input at the cached rate (25% of input), and `output + reasoning` at the output rate, sums the raw products, and divides once with round-half-up (`app/core/money.py`). Tests in `tests/test_pricing.py`: `test_cached_tokens_are_cheaper_than_fresh` (1M cached = 75,000 micros vs 300,000 fresh), `test_reasoning_is_billed_at_the_output_rate`, `test_micros_from_raw_rounds_half_up`, `test_format_usd_uses_integers_only`. The loader rejects a reasoning rate that differs from the output rate: `tests/test_config.py::test_loader_rejects_reasoning_rate_different_from_output_rate`.
+
 
 ### Pricing constants pinned in config, with proof of correct totals
-_TODO_
+All rates and limits live in `config/pricing.toml` and load once at startup (`app/core/config.py`); the `plans` table is checked against the file at startup. `GET /plans` returns them. Totals match the pinned constants: see Probe 5 and the rollup proof above.
+
 
 ## Payment integration (PayMongo)
 
@@ -57,7 +70,8 @@ Migration `migrations/versions/0001_initial_schema.py` creates all tables. Isola
 
 
 ### README, architecture diagram, setup instructions, required files present
-_TODO_
+`README.md` (what it does, ASCII architecture diagram, run + seed + test steps, plans table, Try it, Limitations), `capstone.yaml`, `.env.example` (every variable the code reads: `POSTGRES_*`, `DATABASE_URL`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `APP_BASE_URL`, `WEBHOOK_TOLERANCE_SECONDS`, `LOG_LEVEL`), `EVIDENCE.md`, `BUILDLOG.md`, `docs/spec.md`, `docs/tasks.md`.
+
 
 ## Acceptance probes
 
@@ -199,7 +213,17 @@ _Still to add at Gate 3:_ a real PayMongo delivery replayed from the dashboard o
 
 
 ### Probe 5 — pinned pricing rules give exact totals
-_TODO_
+Worked example (`input 10,000, cached 4,000, output 2,000, reasoning 1,500`), live `POST /generate` on a Free tenant:
+
+```text
+HTTP/1.1 201 Created
+"cost":{"api_call_micros":2000,"fresh_input_micros":1800,"cached_input_micros":300,
+        "output_micros":8750,"total_micros":12850,"total_usd":"0.012850"}
+"quota":{"api_calls_used":1,"api_call_limit":1000,"tokens_used":13500,"token_limit":100000}
+```
+
+Tokens alone: 1,800 + 300 + 8,750 = **10,850 micros**; with the API call, **12,850**. The three wrong answers (11,750 cached at full rate; 7,100 reasoning left out; 5,250 one rate for all tokens) are asserted not to occur in `tests/test_pricing.py::test_the_three_wrong_answers_do_not_occur`; the exact figures are asserted in `test_worked_example_is_10_850_micros` and `test_worked_example_breakdown_and_full_generate_cost`.
+
 
 ## Shared requirements
 
@@ -216,7 +240,8 @@ _TODO_
 
 
 ### Real persistence (migrations, indexes, isolated tenants)
-_TODO_
+Alembic migrations `0001_initial_schema` and `0002_paymongo_billing` build the schema (explicit SQL, `CHECK` constraints, `UNIQUE (tenant_id, idempotency_key)`, `UNIQUE provider_payment_id`, queue and tenant-time indexes). `docker compose up` runs `alembic upgrade head` before serving. Data survives restarts in the `pgdata` volume. Every tenant-owned repository query takes `tenant_id`. The test suite builds its own `billing_test` database from the migrations.
+
 
 ### Idempotency for metering and webhooks
 Metering: Probe 1 and `tests/test_idempotency.py`. Webhooks: Probe 4 (`duplicate: true`, one row) and `tests/test_webhooks.py::test_two_different_events_for_one_payment_grant_once` (second layer: `subscriptions.provider_payment_id` is UNIQUE).
@@ -224,10 +249,19 @@ Metering: Probe 1 and `tests/test_idempotency.py`. Webhooks: Probe 4 (`duplicate
 
 
 ### Secrets clean
-_TODO_
+`.env` is gitignored (`git check-ignore .env` prints `.env`; `git ls-files` lists no `.env`). Settings `repr` hides secrets (`tests/test_config.py::test_settings_repr_hides_secrets`); live keys are refused (`test_live_stripe_key_is_rejected`). History scan before the final push:
+
+```text
+$ git log -p --all | grep -E "sk_test_[A-Za-z0-9]{10,}|whsk_[A-Za-z0-9]{10,}|mk_test_[A-Za-z0-9]{10,}|pk_test_[A-Za-z0-9]{10,}"
+(no output)
+```
+
+Caveat: two pasted screenshots (`docs/image.png`, `docs/image2.png`) were committed by mistake and remain in history; one shows a public IP and browser headers. See BUILDLOG.
+
 
 ### Cost tracked, quota as budget guard
-_TODO_
+Cost per event: `cost_micros` stored on each `usage_events` row and returned in `cost` by `POST /generate`. Cost per month: `GET /usage` (`total_micros`, `total_usd`). Budget guard: the quota check rejects any request that would push a tenant past its token or API-call allowance, before anything is priced or stored (`tests/test_quota.py`, Probe 2).
+
 
 ## GitHub rules
 
