@@ -17,6 +17,7 @@ services:
 
   api:
     build: .
+    image: metering-engine:dev   # the worker uses this same image, so one build updates both
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     env_file: .env
     environment:
@@ -36,7 +37,7 @@ services:
         condition: service_healthy
 
   worker:
-    build: .
+    image: metering-engine:dev
     command: python -m app.worker
     env_file: .env
     environment:
