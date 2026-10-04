@@ -33,7 +33,7 @@ at the end.
 - [x] Document the idempotency strategy: per-tenant key, request hash, stored response, row lock (spec §11).
 - [x] Document the boundary rule `used + requested ≤ limit` and the 402 vs 429 table (spec §12).
 - [x] Document the webhook strategy: raw body, signature check, event-ID dedupe, worker, ordering guard (spec §14).
-- [ ] Read the Phase 1 resources from the brief: Stripe idempotency article, Stripe usage-metering guide (concepts carry over to PayMongo), PayMongo webhooks and Checkout Session docs, "Floats don't work for storing cents".
+- [x] Read the Phase 1 resources from the brief: Stripe idempotency article, Stripe usage-metering guide (concepts carry over to PayMongo), PayMongo webhooks and Checkout Session docs, "Floats don't work for storing cents".
 
 **Gate 1:** `docs/design.md` is committed to the repository.
 
