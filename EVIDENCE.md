@@ -46,7 +46,8 @@ _TODO_
 _TODO_
 
 ### Webhooks verify signatures, ignore duplicates, update tenant plan
-_TODO_
+See Probe 4 above. Tests: `tests/test_webhooks.py` (signature, dedupe, grant, amount guard, spoofed-metadata, unknown tenant) and `tests/test_worker.py` (retry/backoff, failure alert, expiry).
+
 
 ## Data model, tests and documentation
 
@@ -102,7 +103,44 @@ The call that makes exactly 1,000 of 1,000 is allowed (`201`). The next call is 
 _TODO_
 
 ### Probe 4 — forged webhook rejected; replayed event processed once
-_TODO_
+**Simulated deliveries** (signed by `scripts/send_test_webhook.py`; not PayMongo-originated):
+
+```text
+Live system (Docker Compose: api + worker + db). SIMULATED events built and signed by scripts/send_test_webhook.py, not sent by PayMongo.
+
+$ GET /usage (Acme, before)
+plan=free api_call_limit=1000 token_limit=100000
+
+$ python -m scripts.send_test_webhook --tenant-id <acme> --bad-signature
+HTTP 400 {"error":"invalid_signature","message":"The webhook signature does not match the request body."}
+$ psql: SELECT count(*) FROM payment_events;  -- forged delivery wrote nothing
+0
+
+$ python -m scripts.send_test_webhook --tenant-id <acme> --event-id evt_probe4_1791098083   # delivery 1
+HTTP 200 {"received":true}
+$ python -m scripts.send_test_webhook --tenant-id <acme> --event-id evt_probe4_1791098083   # delivery 2 (replay)
+HTTP 200 {"received":true,"duplicate":true}
+
+$ psql: SELECT event_id, status, attempts FROM payment_events;
+       event_id        |  status   | attempts 
+-----------------------+-----------+----------
+ evt_probe4_1791098083 | processed |        0
+(1 row)
+
+$ psql: SELECT status, current_period_end - current_period_start AS length FROM subscriptions;
+ status | length  
+--------+---------
+ active | 30 days
+(1 row)
+
+$ GET /usage (Acme, after)
+plan=pro api_call_limit=50000 token_limit=5000000
+```
+
+Tests: `tests/test_webhooks.py` (forged, missing, malformed, stale, tampered, live-only signatures, all `400` with no row; same event twice gives one row and one grant).
+
+_Still to add at Gate 3:_ a real PayMongo delivery replayed from the dashboard or tunnel inspector.
+
 
 ### Probe 5 — pinned pricing rules give exact totals
 _TODO_
@@ -118,13 +156,15 @@ _TODO_
 
 
 ### Background job with retries, failure alert, and Pro expiry
-_TODO_
+`tests/test_worker.py::test_failing_handler_retries_with_backoff_then_fails_with_an_alert` (2/4/8/16 s waits, fifth failure gives `failed` plus an `alerts` row), `test_one_failing_event_does_not_block_the_others_in_the_batch`, `test_expiry_returns_a_lapsed_tenant_to_free`. Live: the `worker` Compose service processed the simulated event in Probe 4 (`status = processed`).
+
 
 ### Real persistence (migrations, indexes, isolated tenants)
 _TODO_
 
 ### Idempotency for metering and webhooks
-Metering: Probe 1 and the tests above. Webhook idempotency arrives in Phase 3.
+Metering: Probe 1 and `tests/test_idempotency.py`. Webhooks: Probe 4 (`duplicate: true`, one row) and `tests/test_webhooks.py::test_two_different_events_for_one_payment_grant_once` (second layer: `subscriptions.provider_payment_id` is UNIQUE).
+
 
 
 ### Secrets clean

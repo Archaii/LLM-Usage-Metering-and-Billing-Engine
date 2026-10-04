@@ -99,9 +99,9 @@ at the end.
 
 ### 3.0 Migration to the PayMongo shape
 
-- [ ] Migration `0002_paymongo_billing`: drop `tenants.stripe_customer_id`; replace `subscriptions`; add `checkout_sessions`; rename `stripe_events` → `payment_events` and its index (spec §8.1).
-- [ ] Update `app/core/models.py`, `tenants` repository, and `tests/conftest.py` truncate list for the new tables.
-- [ ] Config: `PAYMONGO_SECRET_KEY` (must start `sk_test_`), `PAYMONGO_WEBHOOK_SECRET`, optional `WEBHOOK_TOLERANCE_SECONDS`; add the `[checkout]` section to `config/pricing.toml` and the loader; remove the `stripe` dependency.
+- [x] Migration `0002_paymongo_billing`: drop `tenants.stripe_customer_id`; replace `subscriptions`; add `checkout_sessions`; rename `stripe_events` → `payment_events` and its index (spec §8.1).
+- [x] Update `app/core/models.py`, `tenants` repository, and `tests/conftest.py` truncate list for the new tables.
+- [x] Config: `PAYMONGO_SECRET_KEY` (must start `sk_test_`), `PAYMONGO_WEBHOOK_SECRET`, optional `WEBHOOK_TOLERANCE_SECONDS`; add the `[checkout]` section to `config/pricing.toml` and the loader; remove the `stripe` dependency.
 
 ### 3.1 PayMongo setup (test mode only) — you do this part
 
@@ -113,41 +113,41 @@ at the end.
 
 ### 3.2 Checkout
 
-- [ ] `app/integrations/paymongo.py`: `httpx` client for `POST /v1/checkout_sessions` (Basic auth), timeouts, error mapping with no secrets in messages.
-- [ ] `BillingService.create_checkout`: `409 already_pro` guard, create session, store `checkout_sessions` row (spec §14.2).
-- [ ] `POST /billing/checkout` → `{checkout_url, session_id, amount_php, period_days}`; `502 billing_provider_error` on provider failure.
-- [ ] `GET /billing/success` and `GET /billing/cancel` (static messages; they never change the plan).
+- [x] `app/integrations/paymongo.py`: `httpx` client for `POST /v1/checkout_sessions` (Basic auth), timeouts, error mapping with no secrets in messages.
+- [x] `BillingService.create_checkout`: `409 already_pro` guard, create session, store `checkout_sessions` row (spec §14.2).
+- [x] `POST /billing/checkout` → `{checkout_url, session_id, amount_php, period_days}`; `502 billing_provider_error` on provider failure.
+- [x] `GET /billing/success` and `GET /billing/cancel` (static messages; they never change the plan).
 
 ### 3.3 Webhook receiver
 
-- [ ] `verify_signature` in `app/integrations/paymongo.py`: parse `t,te,li`, HMAC-SHA256 over `"{t}.{raw body}"`, constant-time compare to `te`, timestamp tolerance (spec §14.3).
-- [ ] `POST /webhooks/paymongo` reads the raw body, verifies, parses the envelope; failure → `400`, nothing written.
-- [ ] `INSERT … ON CONFLICT (event_id) DO NOTHING`; duplicate → `200 {"duplicate": true}`.
-- [ ] Unhandled event types stored as `skipped`.
+- [x] `verify_signature` in `app/integrations/paymongo.py`: parse `t,te,li`, HMAC-SHA256 over `"{t}.{raw body}"`, constant-time compare to `te`, timestamp tolerance (spec §14.3).
+- [x] `POST /webhooks/paymongo` reads the raw body, verifies, parses the envelope; failure → `400`, nothing written.
+- [x] `INSERT … ON CONFLICT (event_id) DO NOTHING`; duplicate → `200 {"duplicate": true}`.
+- [x] Unhandled event types stored as `skipped`.
 
 ### 3.4 Background worker
 
-- [ ] `app/worker.py` loop: claim pending events with `FOR UPDATE SKIP LOCKED`, apply each in a savepoint, mark `processed`.
-- [ ] Event → state mapping from spec §14.4 for `checkout_session.payment.paid`: tenant lookup, paid-payment check, amount guard, once-per-payment grant, tenant → Pro.
-- [ ] Expiry step: lapsed Pro periods → `expired`, tenant → Free.
-- [ ] Retries with backoff 2/4/8/16 s; the fifth failure → `failed`, `alerts` row, `ERROR` log.
-- [ ] `worker` service in `compose.yaml` works with the new module.
+- [x] `app/worker.py` loop: claim pending events with `FOR UPDATE SKIP LOCKED`, apply each in a savepoint, mark `processed`.
+- [x] Event → state mapping from spec §14.4 for `checkout_session.payment.paid`: tenant lookup, paid-payment check, amount guard, once-per-payment grant, tenant → Pro.
+- [x] Expiry step: lapsed Pro periods → `expired`, tenant → Free.
+- [x] Retries with backoff 2/4/8/16 s; the fifth failure → `failed`, `alerts` row, `ERROR` log.
+- [x] `worker` service in `compose.yaml` works with the new module.
 
 ### 3.5 Scripts
 
-- [ ] `scripts/register_webhook.py`: `POST /v1/webhooks` with the tunnel URL; prints the signing secret once; never logs the key.
-- [ ] `scripts/send_test_webhook.py`: builds a correctly signed simulated `checkout_session.payment.paid` event and posts it; supports `--bad-signature`.
+- [ ] `scripts/register_webhook.py`: `POST /v1/webhooks` with the tunnel URL; prints the signing secret once; never logs the key. (Written; not yet run against PayMongo, needs your key.)
+- [x] `scripts/send_test_webhook.py`: builds a correctly signed simulated `checkout_session.payment.paid` event and posts it; supports `--bad-signature`.
 
 ### 3.6 Tests
 
-- [ ] Forged, missing, malformed, and stale signatures → `400`, no `payment_events` row, tenant unchanged.
-- [ ] Same signed event posted twice → one row, applied once.
-- [ ] `checkout_session.payment.paid` → tenant `pro`; `GET /usage` shows Pro limits.
-- [ ] Two different events for the same payment → one `subscriptions` row.
-- [ ] Amount mismatch, unknown tenant, unhandled event type → `skipped`, tenant unchanged.
-- [ ] `POST /billing/checkout` with a fake provider client → session stored; second call while Pro → `409`; provider error → `502`, nothing stored.
-- [ ] Handler that always fails → `failed` + `alerts` row after 5 attempts.
-- [ ] Lapsed Pro period → tenant back to `free`.
+- [x] Forged, missing, malformed, and stale signatures → `400`, no `payment_events` row, tenant unchanged.
+- [x] Same signed event posted twice → one row, applied once.
+- [x] `checkout_session.payment.paid` → tenant `pro`; `GET /usage` shows Pro limits.
+- [x] Two different events for the same payment → one `subscriptions` row.
+- [x] Amount mismatch, unknown tenant, unhandled event type → `skipped`, tenant unchanged.
+- [x] `POST /billing/checkout` with a fake provider client → session stored; second call while Pro → `409`; provider error → `502`, nothing stored.
+- [x] Handler that always fails → `failed` + `alerts` row after 5 attempts.
+- [x] Lapsed Pro period → tenant back to `free`.
 
 **Gate 3:** a real test Checkout with card `4343 4343 4343 4345` flips a tenant Free → Pro via webhook. Paste the raw webhook delivery (from the tunnel inspector or PayMongo dashboard) and the before/after `GET /usage` into `EVIDENCE.md`. Compare the real payload against spec §14.3 and fix any difference in spec and code together.
 
