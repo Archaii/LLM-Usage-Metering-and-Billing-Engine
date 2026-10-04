@@ -1,0 +1,11 @@
+run: docker compose up --build -d
+seed: docker compose run --rm api python -m app.seed
+test: docker compose run --rm api pytest
+base_url: http://localhost:8000
+endpoints:
+  - GET /health
+  - GET /plans
+  - POST /generate
+  - GET /usage
+  - POST /billing/checkout
+  - POST /webhooks/paymongo

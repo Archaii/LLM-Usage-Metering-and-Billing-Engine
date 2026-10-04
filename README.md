@@ -6,10 +6,9 @@ plan limit? It meters usage exactly once under retries, enforces monthly quotas
 with honest `402`/`429` responses, prices AI tokens with real-world rules, and
 keeps plans in sync with PayMongo (test mode only).
 
-> **Status:** Phases 0-3 are done (metering, quotas, idempotency, PayMongo checkout and
-> webhooks, worker). Cost calculation, the final docs pack, and the fresh-clone test are Phase 4.
-> The commands below describe the target setup from [docs/spec.md](docs/spec.md);
-> see [docs/tasks.md](docs/tasks.md) for what works today.
+> **Status:** feature complete (metering, quotas, idempotency, pricing, PayMongo checkout and
+> webhooks, worker). The proof for each requirement is in [EVIDENCE.md](EVIDENCE.md); see
+> [Limitations](#limitations) for what is deliberately out of scope.
 >
 > **Payment provider:** the brief names Stripe, which does not onboard
 > Philippines-registered businesses, so this project uses PayMongo. Pro is a
@@ -37,6 +36,32 @@ micro-USD, and stores exactly one usage event; `GET /usage` rolls the month's
 events up into used, limit, and cost. PayMongo webhooks are signature-verified and
 deduplicated by event ID on receipt, then a background worker applies them to the
 tenant's plan with retries and failure alerts.
+
+```
+Client --POST /generate (X-API-Key, Idempotency-Key)--> api
+   |
+   '-> MeterService.record                      [one DB transaction]
+         lock tenant row (SELECT ... FOR UPDATE)
+         key seen + same body      -> stored response (no new event)
+         key seen + different body -> 422 idempotency_key_reused
+         QuotaService.check(used + requested <= limit)
+            '- exceeded -> 402 (Free) / 429 (Pro), nothing stored
+         PricingService.cost(tokens)            [integer micro-USD]
+         INSERT usage_event -> 201
+
+Client --GET /usage--> sum token counts for the month, price each category once,
+                       add API-call cost and the plan base fee
+
+Client --POST /billing/checkout--> PayMongo Hosted Checkout (test mode) -> checkout_url
+
+PayMongo --signed webhook--> POST /webhooks/paymongo
+            verify Paymongo-Signature (forged -> 400, nothing written)
+            INSERT payment_events ON CONFLICT DO NOTHING (replay -> duplicate)
+            200 at once
+worker --poll payment_events (SKIP LOCKED)--> confirm with PayMongo, grant a 30-day Pro period
+            retries 2/4/8/16 s, then status=failed + alerts row + ERROR log
+            also expires lapsed Pro periods -> tenant back to Free
+```
 
 ## Plans
 
@@ -93,6 +118,35 @@ uvicorn app.main:app --reload        # API
 python -m app.worker                 # worker, in a second terminal
 pytest
 ```
+
+## Try it
+
+After `docker compose up --build -d` and the seed command, use a key the seed printed:
+
+```bash
+KEY=mk_test_...                                        # from the seed output
+curl -s localhost:8000/plans
+curl -s -X POST localhost:8000/generate -H "X-API-Key: $KEY" -H "Idempotency-Key: demo-1"   -H "Content-Type: application/json"   -d '{"prompt":"hi","tokens":{"input_tokens":10000,"cached_input_tokens":4000,"output_tokens":2000,"reasoning_tokens":1500}}'
+                                                       # cost.total_micros = 12850; send it again: 200 + Idempotent-Replayed
+curl -s localhost:8000/usage -H "X-API-Key: $KEY"      # used, limit, remaining, cost_micros, total_usd
+```
+
+The seeded **Boundary (Free)** tenant already has 999 of 1,000 API calls used: the next call is allowed,
+the one after returns `402 upgrade_required`.
+
+## Limitations
+
+- **Pro is a prepaid 30-day period, not an auto-renewing subscription.** PayMongo's Subscriptions API
+  needs a customer-facing page to capture a card, and this project has no frontend. Renewal means paying
+  again; renewals stack after the running period. The Subscriptions API is a stretch goal.
+- **The Pro price is a fixed PHP 1,650.00 per period**, a pinned approximation of the $29.00 base fee, not a
+  live exchange rate. The ledger itself stays in micro-USD.
+- **PayMongo behaviour is confirmed for one real flow** (test-mode Hosted Checkout with the test card).
+  Whether PayMongo re-signs retried deliveries, and its exact retry schedule, are not verified.
+- **Test mode only.** The app refuses to start with a key that does not begin with `sk_test_`.
+- **No frontend, invoices, proration, or overage billing.** Token counts are supplied by the client; no
+  AI model is called. The usage period is the calendar month in UTC.
+- **Local webhooks need an HTTPS tunnel** (ngrok or cloudflared); the tunnel URL can change between runs.
 
 ## Documentation
 
