@@ -4,9 +4,10 @@ from app.core.db import transaction
 from app.repositories import payment_events
 from app.services.webhook import Outcome, WebhookService
 from app.worker import expire_periods, process_pending
-from tests.payments import build_paid_event, deliver
+from tests.payments import PAID_AT, FakePayMongoClient, build_paid_event, deliver
 
 T0 = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+PAID = datetime.fromtimestamp(PAID_AT, tz=timezone.utc)
 
 
 class AlwaysFails(WebhookService):
@@ -82,19 +83,18 @@ def test_one_failing_event_does_not_block_the_others_in_the_batch(client):
 
 def test_expiry_returns_a_lapsed_tenant_to_free(client, make_tenant):
     tenant, _ = make_tenant(plan="free")
-    paid_at = int(T0.timestamp())
-    deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_x", created_at=paid_at))
-    process_pending(now=T0)
+    deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_x"))
+    process_pending(WebhookService(FakePayMongoClient()))
 
     def plan():
         with transaction() as conn:
             return conn.execute("SELECT plan_code FROM tenants WHERE id = %s", (tenant.id,)).fetchone()["plan_code"]
 
     assert plan() == "pro"
-    assert expire_periods(now=T0 + timedelta(days=29)) == 0
+    assert expire_periods(now=PAID + timedelta(days=29)) == 0
     assert plan() == "pro"
 
-    assert expire_periods(now=T0 + timedelta(days=30, seconds=1)) == 1
+    assert expire_periods(now=PAID + timedelta(days=30, seconds=1)) == 1
     assert plan() == "free"
     with transaction() as conn:
         assert conn.execute("SELECT status FROM subscriptions").fetchone()["status"] == "expired"
@@ -102,14 +102,14 @@ def test_expiry_returns_a_lapsed_tenant_to_free(client, make_tenant):
 
 def test_tenant_with_a_second_active_period_stays_pro(client, make_tenant):
     tenant, _ = make_tenant(plan="free")
-    first = int(T0.timestamp())
-    second = int((T0 + timedelta(days=20)).timestamp())
-    deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_1", created_at=first))
-    deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_2", created_at=second))
-    process_pending(now=T0)
+    fake = FakePayMongoClient()
+    fake.paid_at["cs_two"] = PAID_AT + 20 * 86_400  # a second period bought 20 days later
+    deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_1", session_id="cs_one"))
+    deliver(client, build_paid_event(tenant_id=str(tenant.id), event_id="evt_2", session_id="cs_two"))
+    process_pending(WebhookService(fake))
 
     # Day 31: the first period lapsed, the second (paid day 20, ends day 50) is still active.
-    assert expire_periods(now=T0 + timedelta(days=31)) == 0
+    assert expire_periods(now=PAID + timedelta(days=31)) == 0
     with transaction() as conn:
         plan = conn.execute("SELECT plan_code FROM tenants WHERE id = %s", (tenant.id,)).fetchone()["plan_code"]
     assert plan == "pro"

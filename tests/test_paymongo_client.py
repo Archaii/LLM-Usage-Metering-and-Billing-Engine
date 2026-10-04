@@ -117,3 +117,27 @@ def test_network_failure_becomes_a_provider_error():
 def test_malformed_success_response_is_a_provider_error(response):
     with pytest.raises(BillingProviderError):
         _checkout(_client(lambda request: response))
+
+
+def test_get_checkout_session_is_a_get_with_basic_auth_and_returns_the_resource():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["method"] = request.method
+        seen["url"] = str(request.url)
+        seen["auth"] = request.headers["authorization"]
+        return httpx.Response(200, json={"data": {"id": "cs_9", "attributes": {"payments": []}}})
+
+    resource = _client(handler).get_checkout_session("cs_9")
+
+    assert resource["id"] == "cs_9"
+    assert seen["method"] == "GET"
+    assert seen["url"] == "https://api.paymongo.com/v1/checkout_sessions/cs_9"
+    assert seen["auth"].startswith("Basic ")
+
+
+def test_get_checkout_session_maps_404_and_odd_bodies_to_provider_errors():
+    with pytest.raises(BillingProviderError, match="HTTP 404"):
+        _client(lambda r: httpx.Response(404, json={"errors": [{"code": "resource_not_found"}]})).get_checkout_session("cs_x")
+    with pytest.raises(BillingProviderError):
+        _client(lambda r: httpx.Response(200, json={"data": "nope"})).get_checkout_session("cs_x")
