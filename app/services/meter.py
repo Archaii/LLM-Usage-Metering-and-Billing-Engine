@@ -17,6 +17,7 @@ from app.api.schemas import (
 )
 from app.core.db import transaction
 from app.core.errors import IdempotencyKeyReused, Unauthorized
+from app.core.money import format_usd
 from app.core.period import current_period, iso_z
 from app.repositories import plans, tenants, usage
 from app.services.pricing import PricingService
@@ -140,7 +141,7 @@ class MeterService:
         return MeterResult(status_code=200, body=stored.response_body, replayed=True)
 
     def usage_summary(self, tenant_id: UUID, now: datetime | None = None) -> UsageSummary:
-        """Current-month rollup. Cost fields stay 0 until Phase 4."""
+        """Current-month rollup: sum counts per category, price them once, add the base fee (spec 7.5)."""
         now = now or datetime.now(timezone.utc)
         period = current_period(now)
         with transaction() as conn:
@@ -151,6 +152,14 @@ class MeterService:
             totals = usage.totals_for_period(conn, tenant_id, period.start, period.end)
 
         tokens_used = totals.quota_tokens
+        api_micros = self._pricing.api_call_micros(totals.api_calls)
+        token_micros = self._pricing.token_micros(
+            totals.input_tokens,
+            totals.cached_input_tokens,
+            totals.output_tokens,
+            totals.reasoning_tokens,
+        )
+        total_micros = plan.base_fee_micros + api_micros + token_micros
         return UsageSummary(
             tenant_id=str(tenant_id),
             plan=plan.code,
@@ -161,13 +170,13 @@ class MeterService:
                 used=totals.api_calls,
                 limit=plan.api_call_limit,
                 remaining=max(0, plan.api_call_limit - totals.api_calls),
-                cost_micros=0,
+                cost_micros=api_micros,
             ),
             tokens=TokenMeterUsage(
                 used=tokens_used,
                 limit=plan.token_limit,
                 remaining=max(0, plan.token_limit - tokens_used),
-                cost_micros=0,
+                cost_micros=token_micros,
                 breakdown={
                     "input": totals.input_tokens,
                     "cached_input": totals.cached_input_tokens,
@@ -177,6 +186,6 @@ class MeterService:
                 },
             ),
             base_fee_micros=plan.base_fee_micros,
-            total_micros=0,
-            total_usd="0.000000",
+            total_micros=total_micros,
+            total_usd=format_usd(total_micros),
         )

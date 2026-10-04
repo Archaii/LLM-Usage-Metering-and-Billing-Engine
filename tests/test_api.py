@@ -64,7 +64,7 @@ def test_usage_reports_counts_limits_and_breakdown(client, make_tenant):
 
     assert u["plan"] == "free"
     assert u["billing_status"] == "ok"
-    assert u["api_calls"] == {"used": 1, "limit": 1_000, "remaining": 999, "cost_micros": 0}
+    assert u["api_calls"] == {"used": 1, "limit": 1_000, "remaining": 999, "cost_micros": 2_000}
     assert u["tokens"]["limit"] == 100_000
     assert u["tokens"]["remaining"] == 86_500
     assert u["tokens"]["breakdown"] == {

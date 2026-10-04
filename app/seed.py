@@ -11,6 +11,7 @@ from app.core.models import Tenant
 from app.core.security import generate_api_key, hash_api_key
 from app.repositories import tenants, usage
 from app.services.plan_sync import sync_plans
+from app.services.pricing import PricingService
 
 BOUNDARY_NAME = "Boundary (Free, 999 calls used)"
 PREFILL_KEY = "seed-prefill-999-calls"
@@ -45,7 +46,7 @@ def _prefill_boundary(conn, tenant: Tenant) -> None:
         cached_input_tokens=0,
         output_tokens=0,
         reasoning_tokens=0,
-        cost_micros=0,
+        cost_micros=PricingService().api_call_micros(999),
         response_status=201,
         response_body={"seed": True},
         created_at=datetime.now(timezone.utc),

@@ -272,6 +272,8 @@ Input: `input_tokens=10,000`, `cached_input_tokens=4,000`, `output_tokens=2,000`
 | **Total** | | | **10,850,000,000** |
 
 `10,850,000,000 / 1,000,000` = **10,850 micros = $0.010850**.
+The three category lines in `CostBreakdown` are each rounded on their own, so they can differ from the
+rounded token total by one micro; `total_micros` (API calls plus the once-divided token total) is authoritative.
 Quota tokens consumed: `10,000 + 2,000 + 1,500 = 13,500`.
 
 Wrong answers the tests must reject:
