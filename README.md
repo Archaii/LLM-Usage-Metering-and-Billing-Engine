@@ -6,8 +6,8 @@ plan limit? It meters usage exactly once under retries, enforces monthly quotas
 with honest `402`/`429` responses, prices AI tokens with real-world rules, and
 keeps plans in sync with PayMongo (test mode only).
 
-> **Status:** Phases 0-2 are done (metering, quotas, idempotency, tests). Phase 3
-> (PayMongo checkout and webhooks) is in progress; cost calculation is Phase 4.
+> **Status:** Phases 0-3 are done (metering, quotas, idempotency, PayMongo checkout and
+> webhooks, worker). Cost calculation, the final docs pack, and the fresh-clone test are Phase 4.
 > The commands below describe the target setup from [docs/spec.md](docs/spec.md);
 > see [docs/tasks.md](docs/tasks.md) for what works today.
 >

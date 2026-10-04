@@ -105,10 +105,10 @@ at the end.
 
 ### 3.1 PayMongo setup (test mode only) — you do this part
 
-- [ ] Create a PayMongo account; stay in **test mode**; never use live keys.
-- [ ] Put `sk_test_…` in `.env` as `PAYMONGO_SECRET_KEY`. Confirm `git status` does not show `.env`.
-- [ ] Install a tunnel (ngrok or cloudflared) and run it against port 8000; copy the public HTTPS URL into `.env` as `APP_BASE_URL`.
-- [ ] Run `python -m scripts.register_webhook https://<tunnel-host>/webhooks/paymongo`; put the printed secret in `.env` as `PAYMONGO_WEBHOOK_SECRET`.
+- [x] Create a PayMongo account; stay in **test mode**; never use live keys.
+- [x] Put `sk_test_…` in `.env` as `PAYMONGO_SECRET_KEY`. Confirm `git status` does not show `.env`.
+- [x] Install a tunnel (ngrok or cloudflared) and run it against port 8000; copy the public HTTPS URL into `.env` as `APP_BASE_URL`.
+- [x] Run `python -m scripts.register_webhook https://<tunnel-host>/webhooks/paymongo`; put the printed secret in `.env` as `PAYMONGO_WEBHOOK_SECRET`.
 - [ ] Ask the mentor to confirm PayMongo and the prepaid-30-day Pro model are acceptable in place of Stripe subscriptions.
 
 ### 3.2 Checkout
@@ -135,7 +135,7 @@ at the end.
 
 ### 3.5 Scripts
 
-- [ ] `scripts/register_webhook.py`: `POST /v1/webhooks` with the tunnel URL; prints the signing secret once; never logs the key. (Written; not yet run against PayMongo, needs your key.)
+- [x] `scripts/register_webhook.py`: `POST /v1/webhooks` with the tunnel URL; prints the signing secret once; never logs the key.
 - [x] `scripts/send_test_webhook.py`: builds a correctly signed simulated `checkout_session.payment.paid` event and posts it; supports `--bad-signature`; needs a real paid `--session-id` for a grant. `scripts/inspect_checkout_session.py`: read-only view of a session's settled state.
 
 ### 3.6 Tests
@@ -151,7 +151,7 @@ at the end.
 - [x] Handler that always fails → `failed` + `alerts` row after 5 attempts.
 - [x] Lapsed Pro period → tenant back to `free`.
 
-**Gate 3:** a real test Checkout with card `4343 4343 4343 4345` flips a tenant Free → Pro via webhook. Paste the raw webhook delivery (from the tunnel inspector or PayMongo dashboard) and the before/after `GET /usage` into `EVIDENCE.md`. Compare the real payload against spec §14.3 and fix any difference in spec and code together.
+**Gate 3 — passed 2026-10-04** (evidence in `EVIDENCE.md`, Probe 3; mentor sign-off on the PayMongo / prepaid-period model still pending): a real test Checkout with card `4343 4343 4343 4345` flips a tenant Free → Pro via webhook. Paste the raw webhook delivery (from the tunnel inspector or PayMongo dashboard) and the before/after `GET /usage` into `EVIDENCE.md`. Compare the real payload against spec §14.3 and fix any difference in spec and code together.
 
 ---
 

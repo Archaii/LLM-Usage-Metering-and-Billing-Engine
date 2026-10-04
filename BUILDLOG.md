@@ -99,3 +99,16 @@ Honest record of where AI helped, where it was wrong, and what I changed.
   this and is flagged in `EVIDENCE.md`.
 - **Environment note:** my shell sandbox cannot reach `api.paymongo.com`, so the one read-only
   session lookup ran inside a Docker container with the code mounted. No write calls were made.
+
+## 2026-10-04 (later still) — Gate 3, and a stale worker
+
+- **Gate 3 passed.** A real PayMongo test checkout flipped Acme from Free to Pro through a verified
+  webhook, with the worker confirming each payment against PayMongo first. Evidence: `EVIDENCE.md`, Probe 3.
+- **My mistake:** after the parser fix I rebuilt only the `api` image. `worker` had its own `build: .`
+  entry and therefore its own image, so it kept running the old code and marked both real events
+  `skipped` / `no_paid_payment`. The reason string was the clue: the new code cannot produce it. Fixed by
+  giving both services one shared image (`metering-engine:dev`). I then reset those two rows to `pending`
+  with a manual SQL update on the dev database so the new worker could process them. Lesson: after a fix,
+  check which container is actually running which code.
+- **Open items:** mentor confirmation of PayMongo and the prepaid-30-day model; Probe 4 against a *real*
+  replayed delivery (the forged-signature and duplicate probes so far used simulated, self-signed events).

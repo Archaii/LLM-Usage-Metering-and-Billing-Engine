@@ -43,7 +43,8 @@ _TODO_
 ## Payment integration (PayMongo)
 
 ### Checkout works end-to-end in PayMongo test mode
-_TODO_
+See Probe 3 below: a real PayMongo test checkout (hosted page, test card) flipped Acme from Free to Pro through a verified webhook, and `POST /billing/checkout` then returns `409 already_pro`. Unit tests with a fake provider client: `tests/test_billing.py`.
+
 
 ### Webhooks verify signatures, ignore duplicates, update tenant plan
 See Probe 4 above. Tests: `tests/test_webhooks.py` (signature, dedupe, grant, amount guard, spoofed-metadata, unknown tenant) and `tests/test_worker.py` (retry/backoff, failure alert, expiry).
@@ -100,7 +101,61 @@ The call that makes exactly 1,000 of 1,000 is allowed (`201`). The next call is 
 
 
 ### Probe 3 — PayMongo test Checkout flips Free to Pro
-_TODO_
+Real PayMongo test checkout (card `4343 4343 4343 4345`), live Compose stack behind an ngrok tunnel. Tenant: Acme (Free).
+
+**Before** (`GET /usage`, from the terminal at the time):
+
+```text
+"plan":"free", "api_calls": {"used":1,"limit":1000,...}, "tokens": {"used":13500,"limit":100000,...}
+```
+
+**Deliveries seen by ngrok** (`POST /webhooks/paymongo`): the first real delivery was answered `400 invalid_payload`
+(seven retries from PayMongo) because my parser expected a numeric event `created_at` and a paid payment inside
+the body; the real body has `created_at: null` and `payments: []`. After the fix PayMongo's retry and the second
+checkout's event were answered `200 OK`. The real body is kept as
+`tests/fixtures/paymongo_checkout_session_payment_paid.json` (client keys redacted).
+
+**Worker confirms with PayMongo, then grants** (`docker compose logs worker`):
+
+```text
+httpx HTTP Request: GET https://api.paymongo.com/v1/checkout_sessions/cs_6d63262025574de03a767a11 "HTTP/1.1 200 OK"
+httpx HTTP Request: GET https://api.paymongo.com/v1/checkout_sessions/cs_817d4b34ea9a5365e72de1d1 "HTTP/1.1 200 OK"
+```
+
+**After** (database):
+
+```text
+ event_id                     | status    | attempts | last_error
+------------------------------+-----------+----------+-----------
+ evt_o7neiiESdA5PQbPEHgQPaUT9 | processed |        0 |
+ evt_SgKMS96JmFM3mcKV99HK8U4i | processed |        0 |
+
+ provider_payment_id          | checkout_session_id         | status | current_period_start   | current_period_end
+------------------------------+-----------------------------+--------+------------------------+-----------------------
+ pay_vmW3bqdjMYgiRFX2cBnQXCfe | cs_6d63262025574de03a767a11 | active | 2026-10-04 08:02:40+00 | 2026-11-03 08:02:40+00
+ pay_NCpSaFH6myhdX9ssPtx9hvWX | cs_817d4b34ea9a5365e72de1d1 | active | 2026-10-04 08:23:09+00 | 2026-11-03 08:23:09+00
+
+ name        | plan_code
+-------------+-----------
+ Acme (Free) | pro
+```
+
+```text
+$ curl localhost:8000/usage -H "X-API-Key: <acme>"
+{"plan": "pro", "billing_status": "ok", "api_call_limit": 50000, "token_limit": 5000000}
+$ curl -X POST localhost:8000/billing/checkout -H "X-API-Key: <acme>"      # already Pro
+HTTP 409  {"error":"already_pro", ...}
+```
+
+Notes, stated plainly:
+
+- Acme made **two** real payments (the first checkout, then a second one made while the code was still being
+  fixed), so it holds two `active` periods. That is correct behaviour for two paid payments.
+- Both events were first marked `skipped` / `no_paid_payment` by a **stale worker container** that was still
+  running the old code (the rebuild only refreshed the `api` image). I fixed `compose.yaml` so `api` and
+  `worker` share one image, set the two rows back to `pending` in the dev database, and the new worker then
+  processed them as shown. That reset was a manual database edit, not a product feature.
+
 
 ### Probe 4 — forged webhook rejected; replayed event processed once
 **Simulated deliveries** (signed by `scripts/send_test_webhook.py`; not PayMongo-originated). *Captured before the worker started confirming payments with PayMongo; the signature and dedupe results still hold, but the grant step is re-run against a real paid session at Gate 3.*
