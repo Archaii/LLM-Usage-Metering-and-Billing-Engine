@@ -43,7 +43,7 @@ _TODO_
 ## Payment integration (PayMongo)
 
 ### Checkout works end-to-end in PayMongo test mode
-See Probe 3 below: a real PayMongo test checkout (hosted page, test card) flipped Acme from Free to Pro through a verified webhook, and `POST /billing/checkout` then returns `409 already_pro`. Unit tests with a fake provider client: `tests/test_billing.py`.
+See Probe 3 below: a real PayMongo test checkout (hosted page, test card) flipped Acme from Free to Pro through a verified webhook, and, at the time, `POST /billing/checkout` returned `409 already_pro` (since replaced by stacking renewals). Unit tests with a fake provider client: `tests/test_billing.py`.
 
 
 ### Webhooks verify signatures, ignore duplicates, update tenant plan
@@ -144,11 +144,12 @@ httpx HTTP Request: GET https://api.paymongo.com/v1/checkout_sessions/cs_817d4b3
 $ curl localhost:8000/usage -H "X-API-Key: <acme>"
 {"plan": "pro", "billing_status": "ok", "api_call_limit": 50000, "token_limit": 5000000}
 $ curl -X POST localhost:8000/billing/checkout -H "X-API-Key: <acme>"      # already Pro
-HTTP 409  {"error":"already_pro", ...}
+HTTP 409  {"error":"already_pro", ...}      # behaviour at the time; replaced by stacking renewals (see note)
 ```
 
 Notes, stated plainly:
 
+- **Later change:** the `already_pro` rejection was removed. A Pro tenant can now renew; the new 30-day period stacks after the running one. Acme's two periods above started before that change, so they overlap instead of stacking; new payments stack (tests: `test_tenant_with_a_second_active_period_stays_pro`, `test_renewal_after_the_period_lapsed_starts_at_the_payment_time`).
 - Acme made **two** real payments (the first checkout, then a second one made while the code was still being
   fixed), so it holds two `active` periods. That is correct behaviour for two paid payments.
 - Both events were first marked `skipped` / `no_paid_payment` by a **stale worker container** that was still

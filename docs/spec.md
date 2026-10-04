@@ -24,7 +24,8 @@ webhooks. PayMongo holds payment truth; the database mirrors it.
 > PayMongo's Subscriptions API needs a customer-facing page to capture a card, and
 > this project has no frontend (§1.2). Pro is therefore sold as a **prepaid
 > 30-day period** through PayMongo Hosted Checkout (§14), not an auto-renewing
-> subscription.
+> subscription. Renewals stack: paying again while Pro adds another 30 days after the
+> current period ends, so a tenant that pays early loses no paid time.
 
 ### 1.1 Goals
 
@@ -39,7 +40,7 @@ webhooks. PayMongo holds payment truth; the database mirrors it.
 
 - Invoicing, proration, and overage billing (stretch goals only, see `tasks.md`).
 - PayMongo live mode or real money. Test mode only, test card `4343 4343 4343 4345` (Visa, no 3-D Secure).
-- Auto-renewing subscriptions and card capture. Pro is a prepaid 30-day period bought through hosted checkout; renewal means buying again after the period ends.
+- Auto-renewing subscriptions and card capture. Pro is a prepaid 30-day period bought through hosted checkout; renewal means paying again. A renewal paid while Pro stacks after the running period, so there is no gap and no wasted time.
 - Currency conversion. PayMongo charges Philippine pesos; the ledger is USD micros. The Pro checkout amount is a fixed pinned peso figure, not a live exchange rate (§6).
 - Calling a real AI model. Token counts are simulated and supplied by the client.
 - Per-tenant billing cycles. The usage period is the calendar month in UTC.
@@ -612,7 +613,6 @@ Response `200`: `{"checkout_url": "https://checkout.paymongo.com/cs_…", "sessi
 | --- | --- | --- |
 | `200` | — | Session created and stored. |
 | `401` | `unauthorized` | Missing or unknown API key. |
-| `409` | `already_pro` | The tenant is already on Pro. Buy again after the period expires. |
 | `502` | `billing_provider_error` | PayMongo rejected or did not answer the request. The message holds no secrets. |
 
 ### 10.4 `POST /webhooks/paymongo`
@@ -725,7 +725,7 @@ after an upgrade `GET /usage` shows Pro limits right away (Probe 3).
 
 `BillingService.create_checkout(tenant)`:
 
-- Raises `AlreadyPro` (`409`) if the tenant's `plan_code` is already `pro`. This also covers seeded Pro tenants that have no subscription row. After a period expires the worker returns the tenant to Free, and it can buy again.
+- Allowed on any plan; there is no `already_pro` rejection. A tenant that is already Pro is renewing, and the webhook stacks the new period after the running one (§14.4). Paying twice quickly simply buys two periods.
 - Calls `POST https://api.paymongo.com/v1/checkout_sessions` with HTTP Basic auth (secret key as the username, empty password):
 
   ```json
@@ -799,13 +799,13 @@ Handled event type: `checkout_session.payment.paid`. Steps, in one transaction w
    - PayMongo unreachable or returns an error → the same retry path.
 4. **Amount guard:** the paid payment `amount` must equal `checkout_sessions.amount_centavos`. Otherwise → `skipped`, `last_error = 'amount_mismatch'`. A cheaper or altered session can never grant Pro.
 5. **Grant, once per payment:** `INSERT INTO subscriptions (…, provider_payment_id) … ON CONFLICT (provider_payment_id) DO NOTHING`, with `provider_payment_id` = the `pay_…` ID. No row inserted → `skipped`, `last_error = 'duplicate_payment'`. Two different events about the same payment grant Pro once.
-6. **Apply:** `current_period_start` = the payment `paid_at` (PayMongo time, falling back to the event time), `current_period_end = start + pro_period_days`, `status = 'active'`. Set tenant `plan_code = 'pro'`, `billing_status = 'ok'`. Mark the `checkout_sessions` row `paid`.
+6. **Apply:** the period starts at the payment `paid_at` (PayMongo time, falling back to the event time), **or at the end of the latest still-running active period if that is later** (a renewal stacks back to back). `current_period_end = start + pro_period_days`, `status = 'active'`. A stacked period's start may therefore be in the future. Set tenant `plan_code = 'pro'`, `billing_status = 'ok'`. Mark the `checkout_sessions` row `paid`.
 
 A signed event is therefore never proof of payment on its own: Pro is granted only when PayMongo's own record shows a paid payment for the right amount.
 
 There is no ordering guard. Grants are independent, so a late or reordered event cannot undo anything, and `provider_payment_id` already blocks double grants.
 
-**Expiry (also the worker):** `UPDATE subscriptions SET status = 'expired' WHERE status = 'active' AND current_period_end <= now()`. For each affected tenant with no remaining `active` subscription: `plan_code = 'free'`. After expiry the tenant can buy another period.
+**Expiry (also the worker):** `UPDATE subscriptions SET status = 'expired' WHERE status = 'active' AND current_period_end <= now()`. For each affected tenant with no remaining `active` subscription still running: `plan_code = 'free'`. A tenant whose stacked next period is already paid stays Pro without a gap. After the last period expires the tenant can buy again.
 
 ### 14.5 Local testing and probe mapping
 
@@ -846,7 +846,7 @@ There is no ordering guard. Grants are independent, so a late or reordered event
   by a handler that returns `ErrorBody` with `error = "validation_error"` and the
   failing fields in `details`.
 - Domain errors (`QuotaExceeded`, `UpgradeRequired`, `PaymentRequired`,
-  `IdempotencyKeyReused`, `AlreadyPro`, `BillingProviderError`, …) are Python exceptions raised in services and
+  `IdempotencyKeyReused`, `BillingProviderError`, …) are Python exceptions raised in services and
   mapped to statuses in `app/api/errors.py`. Services never import FastAPI.
 - Integer bounds (section 7.1) keep every product inside `BIGINT`.
 - Bad input never produces `500`. An unexpected exception returns
@@ -900,7 +900,8 @@ between tests.
 | Webhooks | `checkout_session.payment.paid` → tenant `pro`; `GET /usage` limits change. | Probe 3 |
 | Webhooks | Two different events for the same payment → one subscription row. | G4 |
 | Webhooks | Amount mismatch, unknown tenant, unhandled type → skipped, tenant unchanged. | G4 |
-| Billing | `POST /billing/checkout` (fake PayMongo client) → URL returned, session stored; second call while Pro → `409`. | Probe 3 |
+| Billing | `POST /billing/checkout` (fake PayMongo client) → URL returned, session stored; a Pro tenant may start a renewal checkout. | Probe 3 |
+| Billing | Renewal paid while Pro stacks after the running period; renewal paid after a lapse starts at the payment time. | G4 |
 | Billing | Provider error → `502 billing_provider_error`, no stored session, no secret in body. | Shared req 2 |
 | Worker | Handler raises 5 times → `failed` + `alerts` row. | Shared req 3 |
 | Worker | Lapsed Pro period → tenant back to `free`. | G4 |

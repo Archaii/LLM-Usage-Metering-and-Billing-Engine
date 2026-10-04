@@ -14,7 +14,8 @@ keeps plans in sync with PayMongo (test mode only).
 > **Payment provider:** the brief names Stripe, which does not onboard
 > Philippines-registered businesses, so this project uses PayMongo. Pro is a
 > prepaid 30-day period bought through hosted checkout, not an auto-renewing
-> subscription (see the provider note in the spec).
+> subscription. Renewals stack: paying again while Pro adds 30 days after the
+> current period, with no gap (see the provider note in the spec).
 
 ## Tech stack
 

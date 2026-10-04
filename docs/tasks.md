@@ -114,7 +114,7 @@ at the end.
 ### 3.2 Checkout
 
 - [x] `app/integrations/paymongo.py`: `httpx` client for `POST /v1/checkout_sessions` (Basic auth), timeouts, error mapping with no secrets in messages.
-- [x] `BillingService.create_checkout`: `409 already_pro` guard, create session, store `checkout_sessions` row (spec §14.2).
+- [x] `BillingService.create_checkout`: create session, store `checkout_sessions` row (spec §14.2). Allowed while Pro (renewal); no `409`.
 - [x] `POST /billing/checkout` → `{checkout_url, session_id, amount_php, period_days}`; `502 billing_provider_error` on provider failure.
 - [x] `GET /billing/success` and `GET /billing/cancel` (static messages; they never change the plan).
 
@@ -147,9 +147,10 @@ at the end.
 - [x] Amount mismatch, unknown tenant, unhandled event type → `skipped`, tenant unchanged.
 - [x] Event arrives before the payment settles → retried, applied once PayMongo shows it paid; an event that claims payment PayMongo does not confirm never grants Pro.
 - [x] The real captured delivery (`tests/fixtures/`) is accepted and grants Pro.
-- [x] `POST /billing/checkout` with a fake provider client → session stored; second call while Pro → `409`; provider error → `502`, nothing stored.
+- [x] `POST /billing/checkout` with a fake provider client → session stored; a Pro tenant may start a renewal checkout; provider error → `502`, nothing stored.
 - [x] Handler that always fails → `failed` + `alerts` row after 5 attempts.
 - [x] Lapsed Pro period → tenant back to `free`.
+- [x] Renewal paid while Pro stacks after the running period (no gap); renewal after a lapse starts at the payment time.
 
 **Gate 3 — passed 2026-10-04** (evidence in `EVIDENCE.md`, Probe 3; mentor approved the webhook path and the fixed amount; the prepaid-period model stays, see BUILDLOG): a real test Checkout with card `4343 4343 4343 4345` flips a tenant Free → Pro via webhook. Paste the raw webhook delivery (from the tunnel inspector or PayMongo dashboard) and the before/after `GET /usage` into `EVIDENCE.md`. Compare the real payload against spec §14.3 and fix any difference in spec and code together.
 

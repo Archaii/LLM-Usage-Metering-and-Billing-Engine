@@ -120,3 +120,19 @@ Honest record of where AI helped, where it was wrong, and what I changed.
 - Prepaid 30-day Pro vs an auto-renewing subscription: the mentor gave no ruling. Decision: keep prepaid,
   because PayMongo's Subscriptions API needs a customer-facing step to capture a card and this project has
   no frontend. The README Limitations section will say so. The Subscriptions API stays a stretch goal.
+
+## 2026-10-04 — stacking renewals, and two screenshots committed by mistake
+
+- **Change:** the `409 already_pro` rejection is gone. A Pro tenant can start another checkout, and the
+  webhook starts the new 30-day period when the running one ends (no gap, no wasted paid time); a renewal
+  after a lapse starts at the payment time. Decided with the user: keep the prepaid model and add this
+  upgrade. Mutation check: forcing `period_start = paid_at` fails the stacking test.
+- **Detail found while testing:** two events handled in one batch have the same receipt time (the real
+  `created_at` is null), so their order was arbitrary and stacking could come out reversed. The queue
+  now orders by `event_created, received_at`.
+- **My mistake:** I ran `git add docs` while the user's pasted screenshots sat in `docs/`, so
+  `docs/image.png` and `docs/image2.png` reached the public repo (commits `fb09eed`, `f0eb93c`). One shows the
+  user's public IP and browser headers (ngrok inspector); another shows tenant IDs. No API keys or secrets
+  were in the committed versions as far as I can tell, but I did not inspect every version. They are now
+  untracked and ignored. They remain in git history until it is rewritten, which needs the user's approval
+  because it means a force-push.

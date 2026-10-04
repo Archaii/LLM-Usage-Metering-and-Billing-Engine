@@ -16,7 +16,7 @@ an honest status and message, price money without floats, and keep the tenant's
 plan in sync with PayMongo (test mode only) through signed, deduplicated webhooks.
 
 **Explicit non-goal:** invoicing, proration, and overage billing. No live PayMongo
-mode, no auto-renewing subscriptions (Pro is a prepaid 30-day period), no real AI model (token counts are simulated), no per-tenant billing
+mode, no auto-renewing subscriptions (Pro is a prepaid 30-day period; renewals stack after the running one), no real AI model (token counts are simulated), no per-tenant billing
 cycles, no frontend (spec §1.2).
 
 ## 2. Data model
