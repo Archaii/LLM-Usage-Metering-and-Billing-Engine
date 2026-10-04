@@ -138,7 +138,8 @@ the one after returns `402 upgrade_required`.
   AI model is called. The usage period is the calendar month in UTC.
 - **Local webhooks need an HTTPS tunnel** (ngrok or cloudflared); the tunnel URL can change between runs.
 
-## Proof and history
+## Design, proof and history
 
+- [docs/design.md](docs/design.md): database schema, plans and quotas, the metering API contract, and the idempotency strategy.
 - [EVIDENCE.md](EVIDENCE.md): one proof per requirement (test names, transcripts, hand calculations).
 - [BUILDLOG.md](BUILDLOG.md): honest log of where AI helped and where it was wrong.

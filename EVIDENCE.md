@@ -70,7 +70,7 @@ Migration `migrations/versions/0001_initial_schema.py` creates all tables. Isola
 
 
 ### README, architecture diagram, setup instructions, required files present
-`README.md` (what it does, ASCII architecture diagram, run + seed + test steps, plans table, Try it, Limitations), `capstone.yaml`, `.env.example` (every variable the code reads: `POSTGRES_*`, `DATABASE_URL`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `APP_BASE_URL`, `WEBHOOK_TOLERANCE_SECONDS`, `LOG_LEVEL`), `EVIDENCE.md`, `BUILDLOG.md`.
+`README.md` (what it does, ASCII architecture diagram, run + seed + test steps, plans table, Try it, Limitations), `capstone.yaml`, `.env.example` (every variable the code reads: `POSTGRES_*`, `DATABASE_URL`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `APP_BASE_URL`, `WEBHOOK_TOLERANCE_SECONDS`, `LOG_LEVEL`), `EVIDENCE.md`, `BUILDLOG.md`, `docs/design.md`.
 
 
 ## Acceptance probes

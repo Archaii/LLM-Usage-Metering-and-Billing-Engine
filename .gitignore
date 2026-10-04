@@ -8,5 +8,6 @@ __pycache__/
 .pytest_cache/
 
 # local working files: planning docs, brief, handoff notes, pasted screenshots (can show IPs, keys, tenant data)
-docs/
+docs/*
+!docs/design.md
 handoff.md

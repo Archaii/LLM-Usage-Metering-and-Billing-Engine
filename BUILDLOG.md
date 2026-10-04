@@ -155,8 +155,8 @@ Honest record of where AI helped, where it was wrong, and what I changed.
 
 ## 2026-10-04 (clean-up) — submission-ready repository
 
-- Removed from the repository (kept locally, now gitignored): `docs/` (spec, tasks, design, the brief PDF,
-  screenshots) and `handoff.md`. The repo now holds only what runs, tests, or proves the system, plus
+- Removed from the repository (kept locally, now gitignored): `docs/` (spec, tasks, the brief PDF,
+  screenshots) and `handoff.md`; `docs/design.md` stays. The repo now holds only what runs, tests, or proves the system, plus
   `README.md`, `capstone.yaml`, `EVIDENCE.md`, `BUILDLOG.md`, `.env.example`.
 - Purged `docs/image.png` and `docs/image2.png` from all commits with `git filter-repo`; every commit hash
   changed. A backup bundle of the old history was kept outside the repository.
