@@ -1,4 +1,4 @@
-"""Cost calculation in integer micro-USD (spec section 7)."""
+"""Cost calculation in integer micro-USD."""
 from app.api.schemas import CostBreakdown, TokenUsage
 from app.core.config import Rates, get_pricing
 from app.core.money import format_usd, micros_from_raw
@@ -11,7 +11,7 @@ class PricingService:
     def token_micros(
         self, input_tokens: int, cached_input_tokens: int, output_tokens: int, reasoning_tokens: int
     ) -> int:
-        """Token cost: each category priced at its own rate, summed raw, divided once (spec 7.2)."""
+        """Token cost: each category priced at its own rate, summed raw, divided once."""
         r = self._rates
         raw = (
             (input_tokens - cached_input_tokens) * r.input_micros_per_million

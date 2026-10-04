@@ -22,7 +22,7 @@ from app.integrations.paymongo import SIGNATURE_HEADER, build_signature_header
 def build_paid_event(
     *, tenant_id: str, session_id: str | None = None, event_id: str | None = None
 ) -> dict:
-    """An event shaped like the real captured delivery (see tests/fixtures and spec section 14.3)."""
+    """An event shaped like the real captured delivery (see tests/fixtures)."""
     suffix = secrets.token_hex(6)
     amount = get_pricing().checkout.pro_amount_centavos
     return {

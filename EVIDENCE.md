@@ -70,7 +70,7 @@ Migration `migrations/versions/0001_initial_schema.py` creates all tables. Isola
 
 
 ### README, architecture diagram, setup instructions, required files present
-`README.md` (what it does, ASCII architecture diagram, run + seed + test steps, plans table, Try it, Limitations), `capstone.yaml`, `.env.example` (every variable the code reads: `POSTGRES_*`, `DATABASE_URL`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `APP_BASE_URL`, `WEBHOOK_TOLERANCE_SECONDS`, `LOG_LEVEL`), `EVIDENCE.md`, `BUILDLOG.md`, `docs/spec.md`, `docs/tasks.md`.
+`README.md` (what it does, ASCII architecture diagram, run + seed + test steps, plans table, Try it, Limitations), `capstone.yaml`, `.env.example` (every variable the code reads: `POSTGRES_*`, `DATABASE_URL`, `PAYMONGO_SECRET_KEY`, `PAYMONGO_WEBHOOK_SECRET`, `APP_BASE_URL`, `WEBHOOK_TOLERANCE_SECONDS`, `LOG_LEVEL`), `EVIDENCE.md`, `BUILDLOG.md`.
 
 
 ## Acceptance probes
@@ -269,7 +269,7 @@ $ git log -p --all | grep -E "sk_test_[A-Za-z0-9]{10,}|whsk_[A-Za-z0-9]{10,}|mk_
 (no output)
 ```
 
-Caveat: two pasted screenshots (`docs/image.png`, `docs/image2.png`) were committed by mistake and remain in history; one shows a public IP and browser headers. See BUILDLOG.
+Two pasted screenshots were committed by mistake early on and have since been purged from the whole history (see BUILDLOG).
 
 
 ### Cost tracked, quota as budget guard
@@ -281,5 +281,5 @@ Cost per event: `cost_micros` stored on each `usage_events` row and returned in 
 ### Phase history visible; no secret in Git history; stranger can run it
 Phase history: `git log` shows scaffolding, design, Phase 2 (metering, quotas), Phase 3 (PayMongo), Phase 4 (cost, docs) as separate small commits. Secrets: the history scan under "Secrets clean" returned nothing.
 
-Stranger test (Phase 4, from the committed state): `git clone` into a new folder, `cp .env.example .env` (placeholders only), `docker compose up --build -d`, `docker compose run --rm api python -m app.seed`. Result: `/health` returned `{"status":"ok","database":"ok"}`, `docker compose run --rm api pytest` passed (94 tests), the worked-example `POST /generate` returned `201` then `200` for the same key, `GET /usage` showed `total_micros` 12850, and a forged webhook returned `400`. No undocumented step was needed. Not yet verified: that the repository was public from its first commit.
+Stranger test (Phase 4, from the committed state): `git clone` into a new folder, `cp .env.example .env` (placeholders only), `docker compose up --build -d`, `docker compose run --rm api python -m app.seed`. Result: `/health` returned `{"status":"ok","database":"ok"}`, `docker compose run --rm api pytest` passed (94 tests), the worked-example `POST /generate` returned `201` then `200` for the same key, `GET /usage` showed `total_micros` 12850, and a forged webhook returned `400`. No undocumented step was needed. The repository has been public since its first commit (confirmed by the repository owner).
 

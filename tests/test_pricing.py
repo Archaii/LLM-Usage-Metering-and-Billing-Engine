@@ -1,4 +1,4 @@
-"""Cost rules (spec section 7): Probe 5, G3."""
+"""Cost rules: Probe 5, G3."""
 import pytest
 
 from app.api.schemas import TokenUsage

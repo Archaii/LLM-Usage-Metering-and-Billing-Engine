@@ -1,4 +1,4 @@
-"""Integer money helpers (spec section 5). Floats never touch money."""
+"""Integer money helpers. Floats never touch money."""
 
 MICROS_PER_USD = 1_000_000
 _MILLION = 1_000_000

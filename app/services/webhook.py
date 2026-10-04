@@ -1,4 +1,4 @@
-"""Webhooks: receive and store on the request path; apply in the worker (spec section 14)."""
+"""Webhooks: receive and store on the request path; apply in the worker."""
 import json
 import time
 from dataclasses import dataclass

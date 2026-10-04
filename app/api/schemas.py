@@ -1,4 +1,4 @@
-"""Pydantic models for every request and response body (spec section 8.2)."""
+"""Pydantic models for every request and response body."""
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator

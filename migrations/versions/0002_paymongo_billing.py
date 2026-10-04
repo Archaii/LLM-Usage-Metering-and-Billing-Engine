@@ -1,6 +1,6 @@
 """PayMongo billing shape: checkout_sessions, per-payment subscriptions, payment_events
 
-Moves the Stripe-shaped schema from 0001 to the PayMongo shape in spec section 8.1.
+Moves the Stripe-shaped schema from 0001 to the PayMongo shape.
 No production data exists, so the old subscriptions table is dropped, not converted.
 
 Revision ID: 0002

@@ -1,4 +1,4 @@
-"""Quota rules (spec section 12): allowed only if used + requested <= limit for both meters."""
+"""Quota rules: allowed only if used + requested <= limit for both meters."""
 from datetime import datetime
 
 from app.core.config import get_pricing

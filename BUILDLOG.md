@@ -130,12 +130,11 @@ Honest record of where AI helped, where it was wrong, and what I changed.
 - **Detail found while testing:** two events handled in one batch have the same receipt time (the real
   `created_at` is null), so their order was arbitrary and stacking could come out reversed. The queue
   now orders by `event_created, received_at`.
-- **My mistake:** I ran `git add docs` while the user's pasted screenshots sat in `docs/`, so
-  `docs/image.png` and `docs/image2.png` reached the public repo (commits `fb09eed`, `f0eb93c`). One shows the
-  user's public IP and browser headers (ngrok inspector); another shows tenant IDs. No API keys or secrets
-  were in the committed versions as far as I can tell, but I did not inspect every version. They are now
-  untracked and ignored. They remain in git history until it is rewritten, which needs the user's approval
-  because it means a force-push.
+- **My mistake:** I ran `git add docs` while the user's pasted screenshots sat in `docs/`, so two screenshots
+  reached the public repo. One showed the user's public IP and browser headers (ngrok inspector); another
+  showed tenant IDs. No API keys or secrets were in them as far as I can tell. They were untracked and
+  ignored first, then purged from the entire history with `git filter-repo` and a force-push (see the
+  clean-up entry below). Lesson: add named files, never a whole folder the user also drops files into.
 
 ## 2026-10-04 (Phase 4) — real pricing, docs pack, fresh-clone test
 
@@ -153,3 +152,12 @@ Honest record of where AI helped, where it was wrong, and what I changed.
 - **Environment note:** the fresh-clone test needed ports 8000 and 5433, so I stopped (not removed) the dev
   containers, ran the clone, tore it down with its own volume, and started the dev stack again. Dev data was untouched.
 
+
+## 2026-10-04 (clean-up) — submission-ready repository
+
+- Removed from the repository (kept locally, now gitignored): `docs/` (spec, tasks, design, the brief PDF,
+  screenshots) and `handoff.md`. The repo now holds only what runs, tests, or proves the system, plus
+  `README.md`, `capstone.yaml`, `EVIDENCE.md`, `BUILDLOG.md`, `.env.example`.
+- Purged `docs/image.png` and `docs/image2.png` from all commits with `git filter-repo`; every commit hash
+  changed. A backup bundle of the old history was kept outside the repository.
+- Dropped the now-dangling "spec section N" citations from code comments.

@@ -148,9 +148,7 @@ the one after returns `402 upgrade_required`.
   AI model is called. The usage period is the calendar month in UTC.
 - **Local webhooks need an HTTPS tunnel** (ngrok or cloudflared); the tunnel URL can change between runs.
 
-## Documentation
+## Proof and history
 
-Refer to [spec.md](docs/spec.md) for data types and [tasks.md](docs/tasks.md) for roadmap.
-
-The original capstone brief is in
-[docs/Usage Metering Billing Engine Live Capstone.pdf](docs/Usage%20Metering%20Billing%20Engine%20Live%20Capstone.pdf).
+- [EVIDENCE.md](EVIDENCE.md): one proof per requirement (test names, transcripts, hand calculations).
+- [BUILDLOG.md](BUILDLOG.md): honest log of where AI helped and where it was wrong.

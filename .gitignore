@@ -7,5 +7,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# screenshots pasted into the chat for Claude to read: never commit (can show IPs, keys, tenant data)
-docs/image*.png
+# local working files: planning docs, brief, handoff notes, pasted screenshots (can show IPs, keys, tenant data)
+docs/
+handoff.md

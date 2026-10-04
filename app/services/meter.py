@@ -1,4 +1,4 @@
-"""Metering: exactly-once usage events (spec section 11)."""
+"""Metering: exactly-once usage events."""
 import hashlib
 import json
 from dataclasses import dataclass
@@ -141,7 +141,7 @@ class MeterService:
         return MeterResult(status_code=200, body=stored.response_body, replayed=True)
 
     def usage_summary(self, tenant_id: UUID, now: datetime | None = None) -> UsageSummary:
-        """Current-month rollup: sum counts per category, price them once, add the base fee (spec 7.5)."""
+        """Current-month rollup: sum counts per category, price them once, add the base fee."""
         now = now or datetime.now(timezone.utc)
         period = current_period(now)
         with transaction() as conn:
