@@ -13,10 +13,10 @@ service must answer three questions:
 
 It must meter exactly once under client retries, reject over-limit requests with
 an honest status and message, price money without floats, and keep the tenant's
-plan in sync with Stripe (test mode only) through signed, deduplicated webhooks.
+plan in sync with PayMongo (test mode only) through signed, deduplicated webhooks.
 
-**Explicit non-goal:** invoicing, proration, and overage billing. No live Stripe
-mode, no real AI model (token counts are simulated), no per-tenant billing
+**Explicit non-goal:** invoicing, proration, and overage billing. No live PayMongo
+mode, no auto-renewing subscriptions (Pro is a prepaid 30-day period), no real AI model (token counts are simulated), no per-tenant billing
 cycles, no frontend (spec §1.2).
 
 ## 2. Data model
@@ -27,10 +27,11 @@ Six PostgreSQL tables, created by Alembic migration `0001_initial_schema`
 | Table | Purpose | Key constraints |
 | --- | --- | --- |
 | `plans` | `free` / `pro`, limits, base fee. Seeded from `config/pricing.toml`. | PK `code` |
-| `tenants` | Tenant, SHA-256 API-key hash, `plan_code`, `billing_status` (`ok`/`past_due`), `stripe_customer_id`. | UNIQUE `api_key_hash` |
-| `subscriptions` | Mirror of the Stripe subscription, plus `last_event_created` for the ordering guard. | UNIQUE `stripe_subscription_id` |
+| `tenants` | Tenant, SHA-256 API-key hash, `plan_code`, `billing_status` (`ok`/`past_due`). | UNIQUE `api_key_hash` |
+| `checkout_sessions` | Maps each PayMongo checkout session to its tenant, so the webhook never trusts metadata alone. | PK `id` (cs_...) |
+| `subscriptions` | One row per paid 30-day Pro period; the worker expires lapsed periods. | UNIQUE `provider_payment_id` |
 | `usage_events` | One row per billable request: both meters, token breakdown, `cost_micros`, stored response. | UNIQUE `(tenant_id, idempotency_key)`; index `(tenant_id, created_at)` |
-| `stripe_events` | Webhook inbox and work queue; `event_id` is the dedupe key. | PK `event_id`; index `(status, next_attempt_at)` |
+| `payment_events` | Webhook inbox and work queue; `event_id` is the dedupe key. | PK `event_id`; index `(status, next_attempt_at)` |
 | `alerts` | Failure alerts raised by the worker. | — |
 
 ## 3. API surface
@@ -41,9 +42,9 @@ Six PostgreSQL tables, created by Alembic migration `0001_initial_schema`
 | `GET` | `/plans` | none | Plans, limits, rates |
 | `POST` | `/generate` | API key + `Idempotency-Key` | Billable action: meter, check quota, price |
 | `GET` | `/usage` | API key | Current-month rollup: used, limit, cost |
-| `POST` | `/billing/checkout` | API key | Stripe Checkout Session for Pro |
+| `POST` | `/billing/checkout` | API key | PayMongo Hosted Checkout Session for one Pro period |
 | `GET` | `/billing/success`, `/billing/cancel` | none | Static landing pages; never change the plan |
-| `POST` | `/webhooks/stripe` | Stripe signature | Receive Stripe events |
+| `POST` | `/webhooks/paymongo` | `Paymongo-Signature` | Receive PayMongo events |
 
 All errors share one body: `{error, message, details?, upgrade_url?}`.
 
@@ -53,7 +54,7 @@ All errors share one body: `{error, message, details?, upgrade_url?}`.
 HTTP        app/api/           routes, Pydantic schemas, auth dependency, error → status map
 Logic       app/services/      MeterService, QuotaService, PricingService, BillingService, WebhookService
 Data        app/repositories/  SQL only; every tenant-owned query takes tenant_id
-Worker      app/worker.py      applies queued Stripe events, retries, alerts
+Worker      app/worker.py      applies queued payment events, retries, alerts, expires Pro periods
 ```
 
 Routes never write SQL. Repositories never decide business rules. Services never
@@ -107,17 +108,20 @@ named in `details.meter`.
 ## 8. Webhook strategy (spec §14, §15)
 
 1. Read the **raw** body. Do not parse JSON first.
-2. `stripe.Webhook.construct_event` verifies the signature. Failure → `400`,
+2. HMAC-SHA256 over `"{t}.{raw body}"` is compared (constant time) with the `te` value of `Paymongo-Signature`. Failure → `400`,
    nothing written.
-3. `INSERT INTO stripe_events … ON CONFLICT (event_id) DO NOTHING`. No row
+3. `INSERT INTO payment_events … ON CONFLICT (event_id) DO NOTHING`. No row
    returned → duplicate → `200 {"duplicate": true}`.
 4. Return `200` fast. Unhandled event types are stored as `skipped`.
-5. Worker polls `pending` rows with `FOR UPDATE SKIP LOCKED` and applies them to
-   the tenant's plan and `billing_status`.
-6. Ordering guard: `event.created < subscriptions.last_event_created` → stale,
-   mark `skipped`, change nothing.
-7. Failure → retry with backoff 2/4/8/16/32 s. After 5 failures: `failed`, an
+5. Worker polls `pending` rows with `FOR UPDATE SKIP LOCKED` and, for
+   `checkout_session.payment.paid`, looks up the tenant through the stored
+   `checkout_sessions` row, checks the paid amount, and grants a 30-day Pro period.
+6. Second dedupe layer: `subscriptions.provider_payment_id` is UNIQUE, so two
+   events about one payment grant Pro once. There is no ordering guard because
+   grants are independent.
+7. Failure -> retry with backoff 2/4/8/16/32 s. After 5 failures: `failed`, an
    `alerts` row, and an `ERROR` log.
+8. The same worker expires lapsed Pro periods and returns the tenant to Free.
 
 The Checkout success page never changes the plan. Only a verified webhook does.
 
@@ -126,10 +130,10 @@ The Checkout success page never changes the plan. Only a verified webhook does.
 One API key per tenant (`X-API-Key`, `mk_test_` prefix), stored as SHA-256 only.
 `current_tenant` resolves the tenant once per request. No endpoint accepts a
 tenant ID from the URL or body. Every tenant-owned query filters on `tenant_id`.
-`/webhooks/stripe` is authenticated by Stripe signature, not API key.
+`/webhooks/paymongo` is authenticated by the `Paymongo-Signature` header, not an API key.
 
 ## 10. Secrets
 
 Env only (`.env`, git-ignored; `.env.example` holds placeholders). The app
-refuses to start with a Stripe key that is not `sk_test_` or `rk_test_`. Settings
+refuses to start with a PayMongo key that is not `sk_test_`. Settings
 objects hide secrets from `repr`; logs never carry keys or signatures.

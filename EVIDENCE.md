@@ -40,12 +40,12 @@ _TODO_
 ### Pricing constants pinned in config, with proof of correct totals
 _TODO_
 
-## Stripe integration
+## Payment integration (PayMongo)
 
-### Subscription checkout works end-to-end in test mode
+### Checkout works end-to-end in PayMongo test mode
 _TODO_
 
-### Webhooks verify signatures, ignore duplicates, update tenant plan/status
+### Webhooks verify signatures, ignore duplicates, update tenant plan
 _TODO_
 
 ## Data model, tests and documentation
@@ -98,7 +98,7 @@ HTTP/1.1 402 Payment Required
 The call that makes exactly 1,000 of 1,000 is allowed (`201`). The next call is rejected with `402 upgrade_required` and a message naming the meter, used, requested, limit. A Pro tenant gets `429 quota_exceeded` with `Retry-After` (test `test_pro_over_quota_is_429_with_retry_after`).
 
 
-### Probe 3 — Stripe test Checkout flips Free to Pro
+### Probe 3 — PayMongo test Checkout flips Free to Pro
 _TODO_
 
 ### Probe 4 — forged webhook rejected; replayed event processed once
@@ -117,7 +117,7 @@ _TODO_
 `tests/test_api.py::test_bad_input_is_422_never_500` (negative tokens, cached > input, empty or missing prompt, oversize tokens, missing tokens) and `test_malformed_json_is_422`.
 
 
-### Background job with retries and failure alert
+### Background job with retries, failure alert, and Pro expiry
 _TODO_
 
 ### Real persistence (migrations, indexes, isolated tenants)
