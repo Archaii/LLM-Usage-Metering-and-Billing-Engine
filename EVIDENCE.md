@@ -266,4 +266,7 @@ Cost per event: `cost_micros` stored on each `usage_events` row and returned in 
 ## GitHub rules
 
 ### Phase history visible; no secret in Git history; stranger can run it
-_TODO_
+Phase history: `git log` shows scaffolding, design, Phase 2 (metering, quotas), Phase 3 (PayMongo), Phase 4 (cost, docs) as separate small commits. Secrets: the history scan under "Secrets clean" returned nothing.
+
+Stranger test (Phase 4, from the committed state): `git clone` into a new folder, `cp .env.example .env` (placeholders only), `docker compose up --build -d`, `docker compose run --rm api python -m app.seed`. Result: `/health` returned `{"status":"ok","database":"ok"}`, `docker compose run --rm api pytest` passed (94 tests), the worked-example `POST /generate` returned `201` then `200` for the same key, `GET /usage` showed `total_micros` 12850, and a forged webhook returned `400`. No undocumented step was needed. Not yet verified: that the repository was public from its first commit.
+

@@ -174,12 +174,12 @@ at the end.
 
 ### 4.3 Documentation and submission pack
 
-- [ ] `README.md`: what it does, architecture diagram (ASCII), exact run + seed steps, plans table, honest "Limitations" section.
-- [ ] `capstone.yaml` with `run`, `seed`, `test`, `base_url`, endpoints (spec §19).
-- [ ] `EVIDENCE.md`: one proof per box in the Final self-check (test name + output, curl transcript, or log line).
-- [ ] `BUILDLOG.md` up to date and honest.
-- [ ] `.env.example` matches every variable the code reads.
-- [ ] Fresh-clone test: clone into a new folder, `cp .env.example .env`, run, seed, probe. Fix anything that needs an undocumented step.
+- [x] `README.md`: what it does, architecture diagram (ASCII), exact run + seed steps, plans table, honest "Limitations" section.
+- [x] `capstone.yaml` with `run`, `seed`, `test`, `base_url`, endpoints (spec §19).
+- [x] `EVIDENCE.md`: one proof per box in the Final self-check (test name + output, curl transcript, or log line).
+- [x] `BUILDLOG.md` up to date and honest.
+- [x] `.env.example` matches every variable the code reads.
+- [x] Fresh-clone test: clone into a new folder, `cp .env.example .env`, run, seed, probe. Fix anything that needs an undocumented step.
 
 **Gate 4:** `GET /usage` numbers match the pinned pricing constants. Paste the request, response, and hand calculation into `EVIDENCE.md`.
 
@@ -188,47 +188,47 @@ at the end.
 ## Final self-check (brief §6 — every box needs a proof in EVIDENCE.md)
 
 ### Metering
-- [ ] A billable action creates exactly one usage event, even under retries — deduplicated by idempotency key.
-- [ ] Proof in `EVIDENCE.md` that double-counting cannot happen: a test output or a transcript of the same request sent twice.
+- [x] A billable action creates exactly one usage event, even under retries — deduplicated by idempotency key.
+- [x] Proof in `EVIDENCE.md` that double-counting cannot happen: a test output or a transcript of the same request sent twice.
 
 ### Quotas
-- [ ] Usage is checked against the tenant's plan; requests over the limit are rejected.
-- [ ] Responses carry the correct status codes (`429` / `402`) and a message explaining why.
+- [x] Usage is checked against the tenant's plan; requests over the limit are rejected.
+- [x] Responses carry the correct status codes (`429` / `402`) and a message explaining why.
 
 ### Cost calculation
-- [ ] Monthly usage rolls up into a cost figure per tenant.
-- [ ] AI token pricing handles cached input tokens, reasoning tokens, and output pricing correctly.
-- [ ] Pricing constants are pinned in config, with proof of correct totals in `EVIDENCE.md`.
+- [x] Monthly usage rolls up into a cost figure per tenant.
+- [x] AI token pricing handles cached input tokens, reasoning tokens, and output pricing correctly.
+- [x] Pricing constants are pinned in config, with proof of correct totals in `EVIDENCE.md`.
 
 ### Payment integration (PayMongo)
-- [ ] Checkout works end-to-end in PayMongo test mode (prepaid 30-day Pro period).
-- [ ] Webhooks verify signatures, ignore duplicate events, and update tenant plan; lapsed periods expire.
+- [x] Checkout works end-to-end in PayMongo test mode (prepaid 30-day Pro period).
+- [x] Webhooks verify signatures, ignore duplicate events, and update tenant plan; lapsed periods expire.
 
 ### Data model, tests and documentation
-- [ ] Database includes tenants, plans, subscriptions, and usage events; customer data isolated per tenant.
-- [ ] README + architecture diagram + setup instructions; required files present: `README.md`, `capstone.yaml`, `EVIDENCE.md`, `BUILDLOG.md`, `.env.example`.
+- [x] Database includes tenants, plans, subscriptions, and usage events; customer data isolated per tenant.
+- [x] README + architecture diagram + setup instructions; required files present: `README.md`, `capstone.yaml`, `EVIDENCE.md`, `BUILDLOG.md`, `.env.example`.
 
 ### Acceptance probes (brief §12, run against the live system)
-- [ ] **Probe 1** — same billable request twice with one idempotency key → one usage event; second response mirrors the first.
-- [ ] **Probe 2** — drive a tenant to its exact quota → boundary request follows the documented rule; the next returns `429`/`402` with a clear message.
-- [ ] **Probe 3** — complete a PayMongo test Checkout → webhook flips tenant Free → Pro; `GET /usage` shows the new limits.
+- [x] **Probe 1** — same billable request twice with one idempotency key → one usage event; second response mirrors the first.
+- [x] **Probe 2** — drive a tenant to its exact quota → boundary request follows the documented rule; the next returns `429`/`402` with a clear message.
+- [x] **Probe 3** — complete a PayMongo test Checkout → webhook flips tenant Free → Pro; `GET /usage` shows the new limits.
 - [ ] **Probe 4** — forged webhook → `400`, nothing changes; real event replayed twice → processed once.
-- [ ] **Probe 5** — pinned pricing rules → cached-input and reasoning-token rules give the exact expected totals; `GET /usage` matches.
+- [x] **Probe 5** — pinned pricing rules → cached-input and reasoning-token rules give the exact expected totals; `GET /usage` matches.
 
 ### Shared requirements (brief §12)
-- [ ] Layered architecture — data / logic / HTTP separated.
-- [ ] Validation at the boundary — bad input → clean 4xx, never a 500.
-- [ ] ≥1 background job — payment event worker with retries + failure alert.
-- [ ] Real persistence — migrations, right indexes, isolated tenants.
-- [ ] Idempotency where it matters — metering and webhooks.
-- [ ] Secrets clean — env only, never logged, no key in Git history.
-- [ ] Cost tracked — per call, attributed to tenant, quota as budget guard.
+- [x] Layered architecture — data / logic / HTTP separated.
+- [x] Validation at the boundary — bad input → clean 4xx, never a 500.
+- [x] ≥1 background job — payment event worker with retries + failure alert.
+- [x] Real persistence — migrations, right indexes, isolated tenants.
+- [x] Idempotency where it matters — metering and webhooks.
+- [x] Secrets clean — env only, never logged, no key in Git history.
+- [x] Cost tracked — per call, attributed to tenant, quota as budget guard.
 
 ### GitHub rules (brief §10)
 - [ ] One dedicated public repo, public from day one.
-- [ ] Each phase visible in commit history.
-- [ ] No secret ever committed (`git log -p | grep -E "sk_test_|whsk_"` returns nothing real).
-- [ ] A stranger can run it: one run command plus one seed step on a clean machine.
+- [x] Each phase visible in commit history.
+- [x] No secret ever committed (`git log -p | grep -E "sk_test_|whsk_"` returns nothing real).
+- [x] A stranger can run it: one run command plus one seed step on a clean machine.
 
 ### Submit
 - [ ] Paste the repository link into the portal submission form. Do not upload ZIP files or code.

@@ -136,3 +136,20 @@ Honest record of where AI helped, where it was wrong, and what I changed.
   were in the committed versions as far as I can tell, but I did not inspect every version. They are now
   untracked and ignored. They remain in git history until it is rewritten, which needs the user's approval
   because it means a force-push.
+
+## 2026-10-04 (Phase 4) — real pricing, docs pack, fresh-clone test
+
+- **Done:** `app/core/money.py`, real `PricingService`, priced `/usage` rollup, cost tests (worked example
+  10,850 / 12,850 micros, the three wrong answers, 100 small events pricing to 340 not 300). README,
+  `capstone.yaml`, EVIDENCE proofs. A fresh clone built, seeded, passed all tests, and answered the probes
+  with no undocumented step.
+- **Design choice:** the three `CostBreakdown` category lines are rounded separately, but `total_micros` is
+  one division of the summed raw cost, as spec section 5 says. The lines can therefore differ from the total by
+  one micro. Written into the spec.
+- **What the AI got wrong (earlier):** the handoff said 81 tests passed. Five worker/webhook tests actually failed
+  once the clock passed 12:00 UTC: they used a hardcoded `T0` of 2026-10-04 12:00, while queued events get the
+  real database `now()`, so events were "not due yet". They had only passed earlier in the day. Fixed with a
+  far-future `T0`. Lesson: a test that mixes a fixed time with a real clock is time-dependent.
+- **Environment note:** the fresh-clone test needed ports 8000 and 5433, so I stopped (not removed) the dev
+  containers, ran the clone, tore it down with its own volume, and started the dev stack again. Dev data was untouched.
+

@@ -5,7 +5,7 @@ Written 2026-10-04 so a fresh session can continue without the old chat. Read th
 
 - Repo: https://github.com/Archaii/LLM-Usage-Metering-and-Billing-Engine (public, branch `main`, remote `origin`)
 - Local folder: `C:\Users\Andaya\Documents\Documents\FlyRank AI Internship\LLM_Usage_Metering_Billing_Engine`
-- State: **Phases 0, 1, 2 and 3 are done and pushed. Phase 4 has not started.** 81 tests pass.
+- State: **Phases 0-4 are done and committed; the Phase 4 commits are not pushed yet.** 94 tests pass. Left: the open items in section 6.
 
 ## 1. What this is
 
@@ -73,32 +73,11 @@ docker compose build api; docker compose up -d --force-recreate api worker   # a
   Resetting Acme to Free: `UPDATE tenants SET plan_code='free' WHERE name='Acme (Free)'; DELETE FROM subscriptions;`.
   (An idea not done: make the seed reset demo tenants to their documented plans.)
 
-## 5. Next: Phase 4 (cost and finalization) — start here
+## 5. Phase 4 (done)
 
-`docs/tasks.md` Phase 4 is the checklist. In order:
-
-1. **`app/core/money.py`**: `micros_from_raw(raw) = (raw + 500_000) // 1_000_000` and `format_usd` (no floats).
-2. **`PricingService.cost`** (spec §7.2, §7.4): replace the zero placeholder. Fresh input at the input rate, cached at
-   the cached rate, `output + reasoning` at the output rate; each category priced separately, divided once, round
-   half up. `GenerateResponse.cost` and the stored `cost_micros` use it.
-3. **`GET /usage` rollup** (spec §7.5, §13): sum token counts per category first, price each category once, add
-   `api_calls × 2000` and the plan base fee. `MeterUsage.cost_micros` and `total_micros`/`total_usd` become real.
-4. **Fix existing tests** that currently assert zero cost (for example `tests/test_api.py` expects
-   `api_calls.cost_micros == 0`).
-5. **Cost tests** (spec §18): worked example is exactly **10,850 micros** (tokens) and a full `/generate` is
-   **12,850 micros**; the three wrong answers 11,750 / 7,100 / 5,250 must not occur; many small events price the
-   same as the summed counts; the reasoning-rate loader check already has a test.
-6. **Docs pack**: full `README.md` (what it does, ASCII architecture diagram, exact run + seed steps, plans table, and an
-   honest **Limitations** section: prepaid periods not auto-renew, fixed PHP price, PayMongo behaviour confirmed only
-   for one real flow, no frontend), `capstone.yaml` (spec §19, endpoint `POST /webhooks/paymongo`),
-   `.env.example` matches every variable the code reads.
-7. **EVIDENCE.md** still has `_TODO_` for: monthly rollup cost, cached/reasoning pricing, pinned constants,
-   README/diagram/required files, Probe 5, real persistence, secrets clean, cost tracked / budget guard, GitHub
-   rules. Add a proof for each.
-8. **Tick the "Final self-check" boxes** in `docs/tasks.md`; many are done but still unticked (Probes 1-3, metering,
-   quotas, isolation, background job, validation).
-9. **Fresh-clone test**: clone into a new folder, `cp .env.example .env`, run, seed, probe. Fix any undocumented step.
-10. **Secret scan before the final push**: `git log -p | grep -E "sk_test_|whsk_|mk_test_"` must show nothing real.
+Real pricing (`app/core/money.py`, `PricingService`), priced `/usage` rollup, cost tests, README, `capstone.yaml`,
+EVIDENCE proofs, ticked self-check, fresh-clone test and secret scan are all done. Remaining before submission:
+push, close Probe 4 with a real replay (section 6), decide on the screenshot history rewrite, submit the link.
 
 ## 6. Open items
 
