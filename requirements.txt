@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+psycopg[binary]
+psycopg-pool
+alembic
+stripe
+python-dotenv
+pytest
+httpx
