@@ -1,0 +1,23 @@
+# config/pricing.toml — pinned pricing. Change only with a migration note in BUILDLOG.md.
+currency = "usd"
+micros_per_usd = 1_000_000
+
+[plans.free]
+name = "Free"
+api_call_limit = 1_000          # per calendar month, UTC
+token_limit = 100_000           # per calendar month, UTC
+base_fee_micros = 0
+
+[plans.pro]
+name = "Pro"
+api_call_limit = 50_000
+token_limit = 5_000_000
+base_fee_micros = 29_000_000    # $29.00 / month, matches the Stripe test Price
+# The Stripe Price ID is environment-specific: STRIPE_PRO_PRICE_ID in .env
+
+[rates]
+api_call_micros = 2_000                         # $0.002 per API call
+input_micros_per_million = 300_000              # $0.30 per 1M fresh input tokens
+cached_input_micros_per_million = 75_000        # $0.075 per 1M cached input tokens (25% of input)
+output_micros_per_million = 2_500_000           # $2.50 per 1M output tokens
+reasoning_micros_per_million = 2_500_000        # reasoning is billed at the output rate
