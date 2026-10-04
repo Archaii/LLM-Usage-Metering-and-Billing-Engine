@@ -132,14 +132,25 @@ class PayMongoClient:
         except (KeyError, TypeError):
             raise BillingProviderError("PayMongo returned an unexpected checkout response.") from None
 
+    def get_checkout_session(self, session_id: str) -> dict:
+        """The session as PayMongo holds it now (the webhook only carries a snapshot)."""
+        data = self._request("GET", f"/checkout_sessions/{session_id}")
+        resource = data.get("data")
+        if not isinstance(resource, dict):
+            raise BillingProviderError("PayMongo returned an unexpected checkout response.")
+        return resource
+
     def create_webhook(self, url: str, events: list[str]) -> dict:
         """Returns the raw data object; the signing secret (if present) is data.attributes.secret_key."""
         data = self._post("/webhooks", {"data": {"attributes": {"url": url, "events": events}}})
         return data.get("data", {})
 
     def _post(self, path: str, payload: dict) -> dict:
+        return self._request("POST", path, payload)
+
+    def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
         try:
-            response = self._client.post(self._base_url + path, json=payload)
+            response = self._client.request(method, self._base_url + path, json=payload)
         except httpx.HTTPError as exc:
             log.warning("PayMongo request failed: %s", type(exc).__name__)
             raise BillingProviderError("PayMongo could not be reached. Try again shortly.") from None

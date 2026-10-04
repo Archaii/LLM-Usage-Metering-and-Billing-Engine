@@ -56,3 +56,9 @@ class InvalidSignature(DomainError):
 
 class InvalidPayload(DomainError):
     code = "invalid_payload"
+
+
+class PaymentNotSettled(DomainError):
+    """The webhook arrived before PayMongo finished the payment. The worker retries."""
+
+    code = "payment_not_settled"
