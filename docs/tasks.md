@@ -160,17 +160,17 @@ at the end.
 
 ### 4.1 Cost
 
-- [ ] `app/core/money.py`: `micros_from_raw` (round half up) and `format_usd` (no floats).
-- [ ] `PricingService.cost(tokens)` per spec §7.2, plus API-call cost (spec §7.4).
-- [ ] `POST /generate` response includes `cost` breakdown; event stores `cost_micros`.
-- [ ] `GET /usage` prices summed counts once and adds the base fee (spec §7.5, §13).
+- [x] `app/core/money.py`: `micros_from_raw` (round half up) and `format_usd` (no floats).
+- [x] `PricingService.cost(tokens)` per spec §7.2, plus API-call cost (spec §7.4).
+- [x] `POST /generate` response includes `cost` breakdown; event stores `cost_micros`.
+- [x] `GET /usage` prices summed counts once and adds the base fee (spec §7.5, §13).
 
 ### 4.2 Cost tests
 
-- [ ] Worked example (spec §7.3) → exactly 10,850 micros; a full `/generate` → 12,850 micros.
-- [ ] The three wrong answers (11,750 / 7,100 / 5,250) are asserted not to occur.
-- [ ] Many small events: rollup equals pricing the summed counts (no per-event rounding drift).
-- [ ] Config with reasoning rate ≠ output rate → loader raises.
+- [x] Worked example (spec §7.3) → exactly 10,850 micros; a full `/generate` → 12,850 micros.
+- [x] The three wrong answers (11,750 / 7,100 / 5,250) are asserted not to occur.
+- [x] Many small events: rollup equals pricing the summed counts (no per-event rounding drift).
+- [x] Config with reasoning rate ≠ output rate → loader raises.
 
 ### 4.3 Documentation and submission pack
 
