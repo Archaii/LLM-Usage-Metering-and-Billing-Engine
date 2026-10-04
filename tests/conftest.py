@@ -54,7 +54,7 @@ def client(_database):
 def _clean(client):
     with transaction() as conn:
         conn.execute(
-            "TRUNCATE alerts, stripe_events, usage_events, subscriptions, tenants "
+            "TRUNCATE alerts, payment_events, subscriptions, checkout_sessions, usage_events, tenants "
             "RESTART IDENTITY CASCADE"
         )
     yield

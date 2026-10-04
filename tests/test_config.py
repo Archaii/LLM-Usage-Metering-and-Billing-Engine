@@ -21,7 +21,7 @@ def test_loader_rejects_reasoning_rate_different_from_output_rate(tmp_path):
 
 
 def test_live_stripe_key_is_rejected(monkeypatch):
-    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_live_notallowed")
+    monkeypatch.setenv("PAYMONGO_SECRET_KEY", "sk_live_notallowed")
     get_settings.cache_clear()
     try:
         with pytest.raises(ConfigError, match="test-mode"):
@@ -34,5 +34,5 @@ def test_live_stripe_key_is_rejected(monkeypatch):
 def test_settings_repr_hides_secrets():
     text = repr(get_settings())
     assert "sk_test_" not in text
-    assert "whsec_" not in text
+    assert "whsk_" not in text
     assert "postgresql://" not in text
