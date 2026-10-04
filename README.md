@@ -6,16 +6,6 @@ plan limit? It meters usage exactly once under retries, enforces monthly quotas
 with honest `402`/`429` responses, prices AI tokens with real-world rules, and
 keeps plans in sync with PayMongo (test mode only).
 
-> **Status:** feature complete (metering, quotas, idempotency, pricing, PayMongo checkout and
-> webhooks, worker). The proof for each requirement is in [EVIDENCE.md](EVIDENCE.md); see
-> [Limitations](#limitations) for what is deliberately out of scope.
->
-> **Payment provider:** the brief names Stripe, which does not onboard
-> Philippines-registered businesses, so this project uses PayMongo. Pro is a
-> prepaid 30-day period bought through hosted checkout, not an auto-renewing
-> subscription. Renewals stack: paying again while Pro adds 30 days after the
-> current period, with no gap (see the provider note in the spec).
-
 ## Tech stack
 
 - **Language:** Python 3.12
