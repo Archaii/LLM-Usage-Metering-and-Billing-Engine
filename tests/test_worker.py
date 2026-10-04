@@ -6,7 +6,8 @@ from app.services.webhook import Outcome, WebhookService
 from app.worker import expire_periods, process_pending
 from tests.payments import PAID_AT, FakePayMongoClient, build_paid_event, deliver
 
-T0 = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+# Far in the future: events queue with the real database clock, so T0 must never be earlier than it.
+T0 = datetime(2100, 1, 1, tzinfo=timezone.utc)
 PAID = datetime.fromtimestamp(PAID_AT, tz=timezone.utc)
 
 

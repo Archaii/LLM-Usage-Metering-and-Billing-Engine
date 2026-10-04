@@ -14,7 +14,8 @@ from app.worker import process_pending
 from tests.payments import PAID_AT, FakePayMongoClient, build_paid_event, deliver, serialise
 
 FIXTURE = Path(__file__).parent / "fixtures" / "paymongo_checkout_session_payment_paid.json"
-T0 = datetime(2026, 10, 4, 12, 0, tzinfo=timezone.utc)
+# Far in the future: events queue with the real database clock, so T0 must never be earlier than it.
+T0 = datetime(2100, 1, 1, tzinfo=timezone.utc)
 
 
 def run_worker(fake: FakePayMongoClient | None = None, now: datetime | None = None) -> int:
