@@ -52,7 +52,7 @@ def claim_batch(conn: psycopg.Connection, now: datetime | None, limit: int = 10)
         f"""
         SELECT {_COLUMNS} FROM payment_events
         WHERE status = 'pending' AND next_attempt_at <= coalesce(%s::timestamptz, now())
-        ORDER BY event_created
+        ORDER BY event_created, received_at
         LIMIT %s
         FOR UPDATE SKIP LOCKED
         """,

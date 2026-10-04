@@ -125,14 +125,17 @@ class WebhookService:
             return Outcome("skipped", "tenant_not_found")
 
         paid_at = datetime.fromtimestamp(payment["paid_at"] or event.event_created, tz=timezone.utc)
+        # Renewal: if paid time is still running, this period starts when it ends (no gap, no waste).
+        running_until = subscriptions.latest_active_end(conn, tenant_id, paid_at)
+        period_start = max(paid_at, running_until) if running_until else paid_at
         granted = subscriptions.insert_if_new(
             conn,
             tenant_id=tenant_id,
             provider_payment_id=payment["id"],
             checkout_session_id=session.id if session else None,
             plan_code="pro",
-            period_start=paid_at,
-            period_end=paid_at + timedelta(days=checkout.pro_period_days),
+            period_start=period_start,
+            period_end=period_start + timedelta(days=checkout.pro_period_days),
         )
         if not granted:
             return Outcome("skipped", "duplicate_payment")

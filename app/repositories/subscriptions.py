@@ -42,6 +42,22 @@ def has_active(conn: psycopg.Connection, tenant_id: UUID, now: datetime | None) 
     return row is not None
 
 
+def latest_active_end(conn: psycopg.Connection, tenant_id: UUID, after: datetime) -> datetime | None:
+    """The end of the latest active period that is still running at `after`, or None.
+
+    A renewal starts here, so paid periods stack back to back.
+    """
+    row = conn.execute(
+        """
+        SELECT max(current_period_end) AS latest_end
+        FROM subscriptions
+        WHERE tenant_id = %s AND status = 'active' AND current_period_end > %s
+        """,
+        (tenant_id, after),
+    ).fetchone()
+    return row["latest_end"]
+
+
 def expire_due(conn: psycopg.Connection, now: datetime | None) -> list[UUID]:
     """Mark lapsed periods expired. Returns the distinct tenants that had one lapse.
 

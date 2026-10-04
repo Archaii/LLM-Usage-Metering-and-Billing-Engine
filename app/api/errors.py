@@ -17,7 +17,6 @@ STATUS_BY_ERROR: dict[type[domain.DomainError], int] = {
     domain.PaymentRequired: 402,
     domain.UpgradeRequired: 402,
     domain.QuotaExceeded: 429,
-    domain.AlreadyPro: 409,
     domain.BillingProviderError: 502,
     domain.InvalidSignature: 400,
     domain.InvalidPayload: 400,

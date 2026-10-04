@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 from app.core.config import get_pricing, get_settings
 from app.core.db import transaction
-from app.core.errors import AlreadyPro
 from app.core.models import Tenant
 from app.integrations.paymongo import PayMongoClient
 from app.repositories import checkout_sessions
@@ -27,11 +26,11 @@ class BillingService:
         self._client = client
 
     def create_checkout(self, tenant: Tenant) -> CheckoutResult:
-        if tenant.plan_code == "pro":
-            raise AlreadyPro(
-                "This tenant is already on the Pro plan. Buy another period after the current one expires."
-            )
+        """Start a hosted checkout for one more Pro period.
 
+        Allowed on any plan. A tenant that is already Pro is renewing: the webhook stacks the new
+        period after the current one ends, so paying early never wastes paid time.
+        """
         checkout = get_pricing().checkout
         base_url = get_settings().app_base_url
         # The provider call runs outside any database transaction. If storing the row fails

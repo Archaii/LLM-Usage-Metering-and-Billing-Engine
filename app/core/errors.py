@@ -42,10 +42,6 @@ class QuotaExceeded(DomainError):
         self.retry_after = retry_after
 
 
-class AlreadyPro(DomainError):
-    code = "already_pro"
-
-
 class BillingProviderError(DomainError):
     code = "billing_provider_error"
 
