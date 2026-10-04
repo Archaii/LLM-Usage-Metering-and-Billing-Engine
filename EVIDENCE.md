@@ -209,7 +209,20 @@ plan=pro api_call_limit=50000 token_limit=5000000
 
 Tests: `tests/test_webhooks.py` (forged, missing, malformed, stale, tampered, live-only signatures, all `400` with no row; same event twice gives one row and one grant).
 
-_Still to add at Gate 3:_ a real PayMongo delivery replayed from the dashboard or tunnel inspector.
+**Real delivery replayed (2026-10-04).** A real PayMongo test checkout was paid with the Boundary (Free) tenant. Within the 300 s signature tolerance, the delivery `POST /webhooks/paymongo` was replayed with **Replay** in the ngrok inspector. The replay returned `200 {"received":true,"duplicate":true}` (observed by the user in the inspector). Database afterwards:
+
+```text
+ event_id                     | type                          | status    | attempts | last_error
+------------------------------+-------------------------------+-----------+----------+-----------
+ evt_h3ZDFpM5cg9SEVKMNz2aJh6q | checkout_session.payment.paid | processed |        0 |
+ (one row for this event; the two rows below it belong to the earlier Acme payments)
+
+ name                            | provider_payment_id          | status | current_period_start   | current_period_end
+---------------------------------+------------------------------+--------+------------------------+-----------------------
+ Boundary (Free, 999 calls used) | pay_oFZbGnHURn6HUMVCrJU9dwyW | active | 2026-10-04 14:32:14+00 | 2026-11-03 14:32:14+00
+```
+
+One `payment_events` row, one `subscriptions` row, one 30-day period: the replay was deduplicated, not processed twice. The forged-signature half of Probe 4 is covered by the simulated tests above.
 
 
 ### Probe 5 — pinned pricing rules give exact totals

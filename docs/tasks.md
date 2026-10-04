@@ -212,7 +212,7 @@ at the end.
 - [x] **Probe 1** — same billable request twice with one idempotency key → one usage event; second response mirrors the first.
 - [x] **Probe 2** — drive a tenant to its exact quota → boundary request follows the documented rule; the next returns `429`/`402` with a clear message.
 - [x] **Probe 3** — complete a PayMongo test Checkout → webhook flips tenant Free → Pro; `GET /usage` shows the new limits.
-- [ ] **Probe 4** — forged webhook → `400`, nothing changes; real event replayed twice → processed once.
+- [x] **Probe 4** — forged webhook → `400`, nothing changes; real event replayed twice → processed once.
 - [x] **Probe 5** — pinned pricing rules → cached-input and reasoning-token rules give the exact expected totals; `GET /usage` matches.
 
 ### Shared requirements (brief §12)

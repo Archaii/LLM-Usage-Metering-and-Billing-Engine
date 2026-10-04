@@ -81,7 +81,7 @@ push, close Probe 4 with a real replay (section 6), decide on the screenshot his
 
 ## 6. Open items
 
-- **Probe 4 against a real replayed delivery.** Forged-signature and duplicate results so far came from simulated,
+- **Probe 4 against a real replayed delivery (DONE 2026-10-04, see EVIDENCE.md).** Forged-signature and duplicate results so far came from simulated,
   self-signed events (`scripts/send_test_webhook.py`). To close it: run a checkout with the **Boundary (Free)** key,
   pay, then within 5 minutes press **Replay** on that `POST /webhooks/paymongo` in the ngrok inspector
   (`http://127.0.0.1:4040`). Expect `200 {"received": true, "duplicate": true}` and one `payment_events` row. The 5-minute
