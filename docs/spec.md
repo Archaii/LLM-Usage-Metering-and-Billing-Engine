@@ -612,7 +612,7 @@ Response `200`: `{"checkout_url": "https://checkout.paymongo.com/cs_…", "sessi
 | --- | --- | --- |
 | `200` | — | Session created and stored. |
 | `401` | `unauthorized` | Missing or unknown API key. |
-| `409` | `already_pro` | The tenant has an active Pro period. Buy again after it expires. |
+| `409` | `already_pro` | The tenant is already on Pro. Buy again after the period expires. |
 | `502` | `billing_provider_error` | PayMongo rejected or did not answer the request. The message holds no secrets. |
 
 ### 10.4 `POST /webhooks/paymongo`
@@ -725,7 +725,7 @@ after an upgrade `GET /usage` shows Pro limits right away (Probe 3).
 
 `BillingService.create_checkout(tenant)`:
 
-- Raises `AlreadyPro` (`409`) if the tenant has an `active` subscription with `current_period_end > now()`.
+- Raises `AlreadyPro` (`409`) if the tenant's `plan_code` is already `pro`. This also covers seeded Pro tenants that have no subscription row. After a period expires the worker returns the tenant to Free, and it can buy again.
 - Calls `POST https://api.paymongo.com/v1/checkout_sessions` with HTTP Basic auth (secret key as the username, empty password):
 
   ```json
@@ -809,9 +809,10 @@ There is no ordering guard. Grants are independent, so a late or reordered event
   Each event runs inside a savepoint, so one failing event does not roll back the others in the batch.
 - Success → `status = 'processed'` (or `skipped` with a reason from §14.4), `processed_at = now()`.
 - Failure → `attempts += 1`, `last_error = <message without secrets>`,
-  `next_attempt_at = now() + 2^attempts seconds` (2, 4, 8, 16, 32).
-- After 5 failed attempts → `status = 'failed'`, insert an `alerts` row, and log
+  `next_attempt_at = now() + 2^attempts seconds` (2, 4, 8, 16 s: five attempts, four waits).
+- The fifth failed attempt → `status = 'failed'`, insert an `alerts` row, and log
   at `ERROR`. This is the failure alert.
+- The queue and the expiry step compare against the **database** clock (`now()`), not the worker host's clock, so clock skew between the two can never strand an event.
 - Each loop also runs the expiry step from §14.4.
 - `SKIP LOCKED` makes it safe to run more than one worker.
 

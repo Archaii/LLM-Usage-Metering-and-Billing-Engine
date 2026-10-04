@@ -119,7 +119,7 @@ named in `details.meter`.
 6. Second dedupe layer: `subscriptions.provider_payment_id` is UNIQUE, so two
    events about one payment grant Pro once. There is no ordering guard because
    grants are independent.
-7. Failure -> retry with backoff 2/4/8/16/32 s. After 5 failures: `failed`, an
+7. Failure -> retry with backoff 2/4/8/16 s. The fifth failure: `failed`, an
    `alerts` row, and an `ERROR` log.
 8. The same worker expires lapsed Pro periods and returns the tenant to Free.
 

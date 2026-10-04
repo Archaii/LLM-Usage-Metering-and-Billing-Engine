@@ -130,7 +130,7 @@ at the end.
 - [ ] `app/worker.py` loop: claim pending events with `FOR UPDATE SKIP LOCKED`, apply each in a savepoint, mark `processed`.
 - [ ] Event → state mapping from spec §14.4 for `checkout_session.payment.paid`: tenant lookup, paid-payment check, amount guard, once-per-payment grant, tenant → Pro.
 - [ ] Expiry step: lapsed Pro periods → `expired`, tenant → Free.
-- [ ] Retries with backoff 2/4/8/16/32 s; after 5 failures → `failed`, `alerts` row, `ERROR` log.
+- [ ] Retries with backoff 2/4/8/16 s; the fifth failure → `failed`, `alerts` row, `ERROR` log.
 - [ ] `worker` service in `compose.yaml` works with the new module.
 
 ### 3.5 Scripts
