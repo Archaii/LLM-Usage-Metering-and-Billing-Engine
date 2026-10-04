@@ -113,9 +113,12 @@ named in `details.meter`.
 3. `INSERT INTO payment_events … ON CONFLICT (event_id) DO NOTHING`. No row
    returned → duplicate → `200 {"duplicate": true}`.
 4. Return `200` fast. Unhandled event types are stored as `skipped`.
-5. Worker polls `pending` rows with `FOR UPDATE SKIP LOCKED` and, for
-   `checkout_session.payment.paid`, looks up the tenant through the stored
-   `checkout_sessions` row, checks the paid amount, and grants a 30-day Pro period.
+5. Worker polls `pending` rows with `FOR UPDATE SKIP LOCKED`. For
+   `checkout_session.payment.paid` it finds the tenant through the stored
+   `checkout_sessions` row, then asks PayMongo for the session's current state: the
+   webhook body is only a pre-settlement snapshot, so a signed event is not proof of
+   payment. A paid payment with the right amount grants a 30-day Pro period; an
+   unsettled one is retried.
 6. Second dedupe layer: `subscriptions.provider_payment_id` is UNIQUE, so two
    events about one payment grant Pro once. There is no ordering guard because
    grants are independent.

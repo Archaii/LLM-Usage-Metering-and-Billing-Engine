@@ -74,3 +74,28 @@ Honest record of where AI helped, where it was wrong, and what I changed.
   match our scheme. Probe 3 (real checkout) is not done.
 - **Pricing note:** `config/pricing.toml` gained a `[checkout]` section (PHP 1,650.00 per
   30-day period, a fixed figure approximating the $29.00 base fee, not a live exchange rate).
+
+## 2026-10-04 (later) — first real PayMongo delivery broke two assumptions
+
+- **What happened:** the first real test checkout reached the webhook. The signature check passed,
+  which confirms the HMAC scheme. The body was then rejected with `invalid_payload`: seven times,
+  as PayMongo retried.
+- **What I got wrong:** I had guessed the event shape from doc summaries (flagged as unverified in the
+  entry above). Two guesses failed on the first real event:
+  1. The event envelope's `created_at` is `null`, not a unix time. My parser required a number.
+  2. The body is a snapshot taken before the payment settles: `payments` is `[]`, `paid_at` is `null`,
+     and the payment intent is still `processing`. My worker looked for a paid payment inside the body,
+     so even with the parser fixed it would never have found one.
+- **Fix:** receipt time stands in for the null `created_at`. The worker now confirms with PayMongo
+  (`GET /v1/checkout_sessions/{id}`) and grants Pro only when PayMongo shows a paid payment for the
+  right amount; an unsettled session is retried with the normal backoff. I read the settled shape
+  from the real session (`payments[0]` is `paid`, `amount` 165000, `paid_at` set; the session `status`
+  stays `active`), and I kept the real delivery as `tests/fixtures/paymongo_checkout_session_payment_paid.json`
+  (client keys redacted) so it is a permanent regression test.
+- **Side effect:** a signed event is no longer treated as proof of payment. There is a test where the
+  event claims a payment PayMongo does not confirm; it never grants Pro.
+- **Cost:** `scripts/send_test_webhook.py` can no longer grant Pro by itself. It needs a real paid
+  `--session-id`, because the worker checks with PayMongo. The earlier Probe 4 transcript predates
+  this and is flagged in `EVIDENCE.md`.
+- **Environment note:** my shell sandbox cannot reach `api.paymongo.com`, so the one read-only
+  session lookup ran inside a Docker container with the code mounted. No write calls were made.

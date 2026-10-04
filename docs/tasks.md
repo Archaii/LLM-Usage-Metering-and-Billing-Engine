@@ -128,7 +128,7 @@ at the end.
 ### 3.4 Background worker
 
 - [x] `app/worker.py` loop: claim pending events with `FOR UPDATE SKIP LOCKED`, apply each in a savepoint, mark `processed`.
-- [x] Event → state mapping from spec §14.4 for `checkout_session.payment.paid`: tenant lookup, paid-payment check, amount guard, once-per-payment grant, tenant → Pro.
+- [x] Event → state mapping from spec §14.4 for `checkout_session.payment.paid`: tenant lookup, confirm the session with PayMongo (`GET /v1/checkout_sessions/{id}`), paid-payment check, amount guard, once-per-payment grant, tenant → Pro.
 - [x] Expiry step: lapsed Pro periods → `expired`, tenant → Free.
 - [x] Retries with backoff 2/4/8/16 s; the fifth failure → `failed`, `alerts` row, `ERROR` log.
 - [x] `worker` service in `compose.yaml` works with the new module.
@@ -136,7 +136,7 @@ at the end.
 ### 3.5 Scripts
 
 - [ ] `scripts/register_webhook.py`: `POST /v1/webhooks` with the tunnel URL; prints the signing secret once; never logs the key. (Written; not yet run against PayMongo, needs your key.)
-- [x] `scripts/send_test_webhook.py`: builds a correctly signed simulated `checkout_session.payment.paid` event and posts it; supports `--bad-signature`.
+- [x] `scripts/send_test_webhook.py`: builds a correctly signed simulated `checkout_session.payment.paid` event and posts it; supports `--bad-signature`; needs a real paid `--session-id` for a grant. `scripts/inspect_checkout_session.py`: read-only view of a session's settled state.
 
 ### 3.6 Tests
 
@@ -145,6 +145,8 @@ at the end.
 - [x] `checkout_session.payment.paid` → tenant `pro`; `GET /usage` shows Pro limits.
 - [x] Two different events for the same payment → one `subscriptions` row.
 - [x] Amount mismatch, unknown tenant, unhandled event type → `skipped`, tenant unchanged.
+- [x] Event arrives before the payment settles → retried, applied once PayMongo shows it paid; an event that claims payment PayMongo does not confirm never grants Pro.
+- [x] The real captured delivery (`tests/fixtures/`) is accepted and grants Pro.
 - [x] `POST /billing/checkout` with a fake provider client → session stored; second call while Pro → `409`; provider error → `502`, nothing stored.
 - [x] Handler that always fails → `failed` + `alerts` row after 5 attempts.
 - [x] Lapsed Pro period → tenant back to `free`.

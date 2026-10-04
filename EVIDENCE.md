@@ -103,7 +103,7 @@ The call that makes exactly 1,000 of 1,000 is allowed (`201`). The next call is 
 _TODO_
 
 ### Probe 4 — forged webhook rejected; replayed event processed once
-**Simulated deliveries** (signed by `scripts/send_test_webhook.py`; not PayMongo-originated):
+**Simulated deliveries** (signed by `scripts/send_test_webhook.py`; not PayMongo-originated). *Captured before the worker started confirming payments with PayMongo; the signature and dedupe results still hold, but the grant step is re-run against a real paid session at Gate 3.*
 
 ```text
 Live system (Docker Compose: api + worker + db). SIMULATED events built and signed by scripts/send_test_webhook.py, not sent by PayMongo.

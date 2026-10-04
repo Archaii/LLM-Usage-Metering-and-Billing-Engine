@@ -753,21 +753,30 @@ The success page does **not** change the plan. Only a verified webhook does.
    - Compare it with the `te` (test-mode) value using `hmac.compare_digest`. The `li` (live) value is never accepted: this app is test-mode only.
    - Reject if `|now − t| > 300` seconds (`WEBHOOK_TOLERANCE_SECONDS`, optional, default `300`).
    - A missing header, a malformed header, a bad signature, or a stale timestamp → `400 invalid_signature`, nothing written.
-3. Parse the verified body. Expected envelope (confirm against the first real event; see §14.5):
+3. Parse the verified body. This is the shape PayMongo really sent in the first live test delivery
+   (trimmed; the full body is `tests/fixtures/paymongo_checkout_session_payment_paid.json`):
 
    ```json
    {"data": {"id": "evt_…", "type": "event", "attributes": {
      "type": "checkout_session.payment.paid",
      "livemode": false,
-     "created_at": 1791095841,
      "data": {"id": "cs_…", "type": "checkout_session", "attributes": {
-       "payments": [{"id": "pay_…", "attributes": {"status": "paid", "amount": 165000, "currency": "PHP"}}],
-       "metadata": {"tenant_id": "<uuid>"}
-     }}
+       "status": "active", "paid_at": null, "payments": [],
+       "line_items": [{"amount": 165000, "currency": "PHP", "name": "Pro plan - 30 days", "quantity": 1}],
+       "metadata": {"tenant_id": "<uuid>"},
+       "payment_intent": {"id": "pi_…", "attributes": {"status": "processing", "amount": 165000}}
+     }},
+     "previous_data": {}, "pending_webhooks": 1,
+     "created_at": null, "updated_at": null
    }}}
    ```
 
-   Missing `data.id`, `attributes.type`, or `attributes.created_at`, or `livemode: true` → `400 invalid_payload`, nothing written.
+   Two facts shape the design. The envelope's `created_at` is `null`, so the **receipt time** is used as
+   the event time. And the body is a **snapshot taken before the payment settled**: `payments` is empty,
+   `paid_at` is null, and the payment intent is still `processing`. The body therefore cannot prove
+   payment; §14.4 fetches PayMongo's current record instead.
+
+   Missing `data.id` or `attributes.type`, an empty ID, or `livemode: true` → `400 invalid_payload`, nothing written.
 4. `INSERT INTO payment_events (event_id, type, event_created, payload, status) … ON CONFLICT (event_id) DO NOTHING RETURNING event_id`. No row returned → duplicate → `200 {"received": true, "duplicate": true}`.
 5. Return `200` at once. Handled event types are stored `pending`; every other type is stored `skipped`.
 
@@ -775,11 +784,24 @@ The success page does **not** change the plan. Only a verified webhook does.
 
 Handled event type: `checkout_session.payment.paid`. Steps, in one transaction with the `payment_events.status = 'processed'` update:
 
-1. **Tenant lookup:** `checkout_sessions.id = data.id` → `tenant_id`. Fallback: `metadata.tenant_id`. Neither → `skipped`, `last_error = 'tenant_not_found'`.
-2. **Paid payment:** the first entry of `payments[]` whose `attributes.status` is `paid`. None → `skipped`, `last_error = 'no_paid_payment'`.
-3. **Amount guard:** `payment.attributes.amount` must equal `checkout_sessions.amount_centavos`. Otherwise → `skipped`, `last_error = 'amount_mismatch'`. A cheaper or altered session can never grant Pro.
-4. **Grant, once per payment:** `INSERT INTO subscriptions (…, provider_payment_id) … ON CONFLICT (provider_payment_id) DO NOTHING`. No row inserted → `skipped`, `last_error = 'duplicate_payment'`. This is a second dedupe layer: two different events about the same payment grant Pro once.
-5. **Apply:** `current_period_start = event time`, `current_period_end = start + pro_period_days`, `status = 'active'`. Set tenant `plan_code = 'pro'`, `billing_status = 'ok'`. Mark the `checkout_sessions` row `paid` with `paid_at`.
+1. **Session ID:** `data.attributes.data.id` (`cs_…`). Missing → `skipped`, `last_error = 'no_session_id'`.
+2. **Tenant lookup:** `checkout_sessions.id = <session id>` → `tenant_id`. Fallback: `metadata.tenant_id` in the event. Neither → `skipped`, `last_error = 'tenant_not_found'`. The stored row wins over metadata, so a spoofed metadata value cannot redirect a payment.
+3. **Confirm with PayMongo:** `GET /v1/checkout_sessions/<session id>` (HTTP Basic, secret key). The event body is only a snapshot (§14.3); the retrieved record is authoritative. Its `attributes.payments[]` must contain an entry whose `attributes.status` is `paid`. Real settled shape (captured in test mode):
+
+   ```json
+   {"id": "cs_…", "attributes": {"status": "active", "paid_at": 1791100960,
+     "payments": [{"id": "pay_…", "attributes": {"status": "paid", "amount": 165000,
+       "currency": "PHP", "paid_at": 1791100960, "payment_intent_id": "pi_…"}}]}}
+   ```
+
+   (The session's own `status` stays `active` after payment; the payment entry is what counts.)
+   - No paid payment yet → raise `PaymentNotSettled`. The worker retries with its normal backoff (§15), so a delivery that races the settlement is applied a few seconds later.
+   - PayMongo unreachable or returns an error → the same retry path.
+4. **Amount guard:** the paid payment `amount` must equal `checkout_sessions.amount_centavos`. Otherwise → `skipped`, `last_error = 'amount_mismatch'`. A cheaper or altered session can never grant Pro.
+5. **Grant, once per payment:** `INSERT INTO subscriptions (…, provider_payment_id) … ON CONFLICT (provider_payment_id) DO NOTHING`, with `provider_payment_id` = the `pay_…` ID. No row inserted → `skipped`, `last_error = 'duplicate_payment'`. Two different events about the same payment grant Pro once.
+6. **Apply:** `current_period_start` = the payment `paid_at` (PayMongo time, falling back to the event time), `current_period_end = start + pro_period_days`, `status = 'active'`. Set tenant `plan_code = 'pro'`, `billing_status = 'ok'`. Mark the `checkout_sessions` row `paid`.
+
+A signed event is therefore never proof of payment on its own: Pro is granted only when PayMongo's own record shows a paid payment for the right amount.
 
 There is no ordering guard. Grants are independent, so a late or reordered event cannot undo anything, and `provider_payment_id` already blocks double grants.
 
@@ -787,8 +809,8 @@ There is no ordering guard. Grants are independent, so a late or reordered event
 
 ### 14.5 Local testing and probe mapping
 
-- **Real events (Probe 3, Gate 3):** tunnel + registered webhook, then `POST /billing/checkout`, open `checkout_url`, pay with the test card. The first real event's payload shape must be compared with §14.3 and any difference fixed in this spec and the code in the same commit. Save the event's raw body and headers (tunnel inspector, or the PayMongo dashboard) for `EVIDENCE.md`.
-- **Signed simulations (tests and Probe 4):** `scripts/send_test_webhook.py` builds a correctly signed event with the real secret and posts it to a URL, so forged and replayed deliveries are repeatable without the dashboard. It simulates PayMongo; it is not a PayMongo-originated event, and `EVIDENCE.md` says so.
+- **Real events (Probe 3, Gate 3):** tunnel + registered webhook, then `POST /billing/checkout`, open `checkout_url`, pay with the test card. The first real delivery has been compared with §14.3: it exposed the null `created_at` and the empty `payments`, and both are now handled. Save each real delivery's raw body (tunnel inspector) for `EVIDENCE.md`.
+- **Signed simulations (tests and Probe 4):** `scripts/send_test_webhook.py` builds a correctly signed event shaped like the real snapshot and posts it, so forged and replayed deliveries are repeatable without the dashboard. It simulates PayMongo; it is not a PayMongo-originated event, and `EVIDENCE.md` says so. Because the worker confirms with PayMongo (§14.4), `--session-id` must name a real, paid test checkout session for a grant to happen.
 - **Probe 3:** real Checkout with the test card → worker applies `checkout_session.payment.paid` → `GET /usage` shows `"plan": "pro"` and Pro limits.
 - **Probe 4:** `curl` a body with a fake `Paymongo-Signature` → `400`, no row in `payment_events`, tenant unchanged. The same signed event delivered twice → second delivery returns `duplicate: true`; the event has one row with `status = 'processed'` and `subscriptions` has one row.
 
@@ -808,7 +830,7 @@ There is no ordering guard. Grants are independent, so a late or reordered event
   ```
   Each event runs inside a savepoint, so one failing event does not roll back the others in the batch.
 - Success → `status = 'processed'` (or `skipped` with a reason from §14.4), `processed_at = now()`.
-- Failure → `attempts += 1`, `last_error = <message without secrets>`,
+- Failure (including `PaymentNotSettled`) → `attempts += 1`, `last_error = <message without secrets>`,
   `next_attempt_at = now() + 2^attempts seconds` (2, 4, 8, 16 s: five attempts, four waits).
 - The fifth failed attempt → `status = 'failed'`, insert an `alerts` row, and log
   at `ERROR`. This is the failure alert.

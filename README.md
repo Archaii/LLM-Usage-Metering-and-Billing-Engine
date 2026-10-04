@@ -72,8 +72,8 @@ ngrok http 8000                                             # copy the https://.
 python -m scripts.register_webhook https://<tunnel-host>/webhooks/paymongo
                                                             # prints the signing secret once -> PAYMONGO_WEBHOOK_SECRET in .env
 curl -X POST localhost:8000/billing/checkout -H "X-API-Key: <key>"   # returns checkout_url; open it and pay
-python -m scripts.send_test_webhook --url http://localhost:8000/webhooks/paymongo --tenant-id <tenant_uuid> --session-id <cs_id>
-                                                            # signed simulated event; add --bad-signature to see the 400
+python -m scripts.send_test_webhook --tenant-id <tenant_uuid> --session-id <paid cs_id>
+                                                            # signed simulated event for a real paid session; add --bad-signature to see the 400
 ```
 
 Use test card `4343 4343 4343 4345` with any future expiry and any CVC in Checkout.
