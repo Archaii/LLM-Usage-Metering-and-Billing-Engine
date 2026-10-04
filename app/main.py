@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
-from app.api.routes import generate, health, plans, usage
+from app.api.routes import billing, generate, health, plans, usage, webhooks
 from app.core.config import get_pricing, get_settings
 from app.core.db import close_pool, init_pool
 from app.services.plan_sync import verify_plans
@@ -13,7 +13,7 @@ from app.services.plan_sync import verify_plans
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    settings = get_settings()  # refuses to start on a non-test Stripe key
+    settings = get_settings()  # refuses to start on a non-test PayMongo key
     logging.basicConfig(level=settings.log_level)
     init_pool()
     try:
@@ -29,3 +29,5 @@ app.include_router(health.router)
 app.include_router(plans.router)
 app.include_router(generate.router)
 app.include_router(usage.router)
+app.include_router(billing.router)
+app.include_router(webhooks.router)

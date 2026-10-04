@@ -104,3 +104,11 @@ class PlansResponse(BaseModel):
     micros_per_usd: int
     plans: list[PlanInfo]
     rates: RatesInfo
+
+
+class CheckoutResponse(BaseModel):
+    checkout_url: str
+    session_id: str
+    amount_php: str  # "1650.00", formatted from integer centavos
+    period_days: int
+
