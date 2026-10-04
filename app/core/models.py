@@ -1,5 +1,6 @@
 """Plain row types shared between repositories and services."""
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 
@@ -18,7 +19,6 @@ class Tenant:
     name: str
     plan_code: str
     billing_status: str
-    stripe_customer_id: str | None
 
 
 @dataclass(frozen=True)
@@ -32,3 +32,24 @@ class UsageTotals:
     @property
     def quota_tokens(self) -> int:
         return self.input_tokens + self.output_tokens + self.reasoning_tokens
+
+
+@dataclass(frozen=True)
+class CheckoutSession:
+    id: str
+    tenant_id: UUID
+    plan_code: str
+    amount_centavos: int
+    status: str
+
+
+@dataclass(frozen=True)
+class PaymentEvent:
+    event_id: str
+    type: str
+    event_created: int
+    payload: dict
+    status: str
+    attempts: int
+    next_attempt_at: datetime
+    last_error: str | None

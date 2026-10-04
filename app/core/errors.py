@@ -40,3 +40,19 @@ class QuotaExceeded(DomainError):
     def __init__(self, message: str, details: dict | None = None, retry_after: int = 1):
         super().__init__(message, details)
         self.retry_after = retry_after
+
+
+class AlreadyPro(DomainError):
+    code = "already_pro"
+
+
+class BillingProviderError(DomainError):
+    code = "billing_provider_error"
+
+
+class InvalidSignature(DomainError):
+    code = "invalid_signature"
+
+
+class InvalidPayload(DomainError):
+    code = "invalid_payload"

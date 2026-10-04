@@ -8,6 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 PRICING_PATH = Path(__file__).resolve().parents[2] / "config" / "pricing.toml"
+PAYMONGO_MIN_AMOUNT_CENTAVOS = 2_000  # PayMongo rejects charges below PHP 20.00
 
 
 class ConfigError(RuntimeError):
@@ -33,11 +34,19 @@ class Rates:
 
 
 @dataclass(frozen=True)
+class CheckoutConfig:
+    currency: str
+    pro_amount_centavos: int
+    pro_period_days: int
+
+
+@dataclass(frozen=True)
 class Pricing:
     currency: str
     micros_per_usd: int
     plans: dict[str, PlanConfig]
     rates: Rates
+    checkout: CheckoutConfig
 
 
 def load_pricing(path: Path = PRICING_PATH) -> Pricing:
@@ -60,21 +69,30 @@ def load_pricing(path: Path = PRICING_PATH) -> Pricing:
     if set(plans) != {"free", "pro"}:
         raise ConfigError("pricing.toml must define exactly the plans 'free' and 'pro'")
 
+    checkout = CheckoutConfig(**raw["checkout"])
+    if checkout.currency != "PHP":
+        raise ConfigError("checkout.currency must be PHP (PayMongo charges Philippine pesos)")
+    if checkout.pro_amount_centavos < PAYMONGO_MIN_AMOUNT_CENTAVOS:
+        raise ConfigError("checkout.pro_amount_centavos is below PayMongo's PHP 20.00 minimum")
+    if checkout.pro_period_days < 1:
+        raise ConfigError("checkout.pro_period_days must be at least 1")
+
     return Pricing(
         currency=raw["currency"],
         micros_per_usd=raw["micros_per_usd"],
         plans=plans,
         rates=rates,
+        checkout=checkout,
     )
 
 
 @dataclass(frozen=True)
 class Settings:
     database_url: str = field(repr=False)
-    stripe_secret_key: str = field(repr=False)
-    stripe_webhook_secret: str = field(repr=False)
-    stripe_pro_price_id: str
+    paymongo_secret_key: str = field(repr=False)
+    paymongo_webhook_secret: str = field(repr=False)
     app_base_url: str
+    webhook_tolerance_seconds: int
     log_level: str
 
 
@@ -88,15 +106,19 @@ def _require(name: str) -> str:
 @lru_cache
 def get_settings() -> Settings:
     load_dotenv()  # real environment variables win over .env
-    key = _require("STRIPE_SECRET_KEY")
-    if not key.startswith(("sk_test_", "rk_test_")):
-        raise ConfigError("STRIPE_SECRET_KEY must be a Stripe test-mode key (sk_test_ or rk_test_)")
+    key = _require("PAYMONGO_SECRET_KEY")
+    if not key.startswith("sk_test_"):
+        raise ConfigError("PAYMONGO_SECRET_KEY must be a PayMongo test-mode key (sk_test_)")
+    try:
+        tolerance = int(os.environ.get("WEBHOOK_TOLERANCE_SECONDS", "300"))
+    except ValueError:
+        raise ConfigError("WEBHOOK_TOLERANCE_SECONDS must be an integer") from None
     return Settings(
         database_url=_require("DATABASE_URL"),
-        stripe_secret_key=key,
-        stripe_webhook_secret=_require("STRIPE_WEBHOOK_SECRET"),
-        stripe_pro_price_id=_require("STRIPE_PRO_PRICE_ID"),
+        paymongo_secret_key=key,
+        paymongo_webhook_secret=_require("PAYMONGO_WEBHOOK_SECRET"),
         app_base_url=os.environ.get("APP_BASE_URL", "http://localhost:8000").rstrip("/"),
+        webhook_tolerance_seconds=tolerance,
         log_level=os.environ.get("LOG_LEVEL", "INFO").upper(),
     )
 

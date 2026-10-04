@@ -12,8 +12,14 @@ base_fee_micros = 0
 name = "Pro"
 api_call_limit = 50_000
 token_limit = 5_000_000
-base_fee_micros = 29_000_000    # $29.00 / month, matches the Stripe test Price
-# The Stripe Price ID is environment-specific: STRIPE_PRO_PRICE_ID in .env
+base_fee_micros = 29_000_000    # $29.00 per 30-day Pro period, in the USD ledger
+
+[checkout]
+# PayMongo charges Philippine pesos in centavos (minimum 2,000 = PHP 20.00).
+# A fixed pinned amount that approximates the $29.00 base fee; it is NOT a live FX rate.
+currency = "PHP"
+pro_amount_centavos = 165_000   # PHP 1,650.00
+pro_period_days = 30            # length of one paid Pro period
 
 [rates]
 api_call_micros = 2_000                         # $0.002 per API call
